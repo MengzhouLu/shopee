@@ -254,7 +254,9 @@ for j in range(CTS):
 test['preds2'] = preds
 test.head()
 
-del image_embeddings
+# image_embeddings=image_embeddings.get()
+# del image_embeddings
+cp.get_default_memory_pool().free_all_blocks()#释放显存
 
 
 print('Computing text embeddings...')
