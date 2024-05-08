@@ -4,7 +4,7 @@ import sys
 sys.path = [
     './geffnet-20200820'
 ] + sys.path
-
+#配置环境
 import numpy as np, pandas as pd, gc
 import cv2, matplotlib.pyplot as plt
 import cudf, cuml, cupy
