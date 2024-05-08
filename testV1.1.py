@@ -254,6 +254,9 @@ for j in range(CTS):
 test['preds2'] = preds
 test.head()
 
+del image_embeddings
+
+
 print('Computing text embeddings...')
 model = TfidfVectorizer(stop_words=None,
                         binary=True,
@@ -288,6 +291,8 @@ test.head()
 tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
 test['preds3'] = test.image_phash.map(tmp)
 test.head()
+del text_embeddings
+
 
 def combine_for_sub(row):
     x = np.concatenate([row.preds, row.preds2, row.preds3])
