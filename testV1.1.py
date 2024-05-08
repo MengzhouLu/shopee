@@ -219,21 +219,18 @@ print('image embeddings shape', image_embeddings.shape)
 
 KNN = 50
 if len(test)==3: KNN = 2
-model = NearestNeighbors(n_neighbors=KNN)
-model.fit(image_embeddings)
-
-import cupy as cp
-import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
-
 import cupy as cp
 from sklearn.neighbors import NearestNeighbors
 
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-
 preds = []
-CHUNK = 1024*4
+
+
+# 创建 NearestNeighbors 模型
+model = NearestNeighbors(n_neighbors=KNN)
+
+CHUNK = 1024 * 4  # 定义每个数据块的大小
 print('Finding similar images...')
 CTS = len(image_embeddings) // CHUNK
 if len(image_embeddings) % CHUNK != 0:
@@ -242,6 +239,13 @@ if len(image_embeddings) % CHUNK != 0:
 for j in range(CTS):
     a = j * CHUNK
     b = min((j + 1) * CHUNK, len(image_embeddings))
+    print('Processing chunk', a, 'to', b)
+
+    # 训练模型
+    if j == 0:
+        model.fit(image_embeddings[a:b])
+    else:
+        model.add_new_data(image_embeddings[a:b])
 
     # 寻找相似的邻居
     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
@@ -250,6 +254,9 @@ for j in range(CTS):
         similar_indices = indices[k]
         o = test.iloc[cp.asnumpy(similar_indices)].posting_id.values
         preds.append(o)
+
+    # 及时释放内存
+    del distances, indices
 
 test['preds2'] = preds
 test.head()
