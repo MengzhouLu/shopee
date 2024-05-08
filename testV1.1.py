@@ -98,7 +98,7 @@ class LandmarkDataset(Dataset):
         else:
             return torch.tensor(image), input_ids, attention_mask, torch.tensor(row.label_group)
 
-tokenizer = AutoTokenizer.from_pretrained('./bert-base-uncased')
+tokenizer = AutoTokenizer.from_pretrained('./bert base uncased')
 
 if not COMPUTE_CV:
     df_sub = pd.read_csv('./test.csv')
@@ -167,7 +167,7 @@ class enet_arcface_FINAL(nn.Module):
 
     def __init__(self, enet_type, out_dim):
         super(enet_arcface_FINAL, self).__init__()
-        self.bert = AutoModel.from_pretrained('./bert-base-uncased')
+        self.bert = AutoModel.from_pretrained('./bert base uncased')
         self.enet = geffnet.create_model(enet_type.replace('-', '_'), pretrained=None)
         self.feat = nn.Linear(self.enet.classifier.in_features + self.bert.config.hidden_size, 512)
         self.swish = Swish_module()
