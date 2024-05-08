@@ -214,6 +214,9 @@ with torch.no_grad():
 
 del model
 _ = gc.collect()
+torch.cuda.empty_cache()
+cupy.get_default_memory_pool().free_all_blocks()
+
 image_embeddings = np.concatenate(embeds)
 print('image embeddings shape', image_embeddings.shape)
 
@@ -257,8 +260,9 @@ test.head()
 image_embeddings=image_embeddings.get()
 del image_embeddings
 cp.get_default_memory_pool().free_all_blocks()#释放显存
+cp.get_default_memory_pool().free_all_blocks()
 _ = gc.collect()
-
+torch.cuda.empty_cache()
 print('Computing text embeddings...')
 model = TfidfVectorizer(stop_words=None,
                         binary=True,
