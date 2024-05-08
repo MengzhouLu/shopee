@@ -226,24 +226,30 @@ import cupy as cp
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
+import cupy as cp
+from sklearn.neighbors import NearestNeighbors
+
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
 
 preds = []
-THRESHOLD = 0.5  # 相似性阈值
+CHUNK = 1024*4
+print('Finding similar images...')
+CTS = len(image_embeddings) // CHUNK
+if len(image_embeddings) % CHUNK != 0:
+    CTS += 1
 
-# 计算相似度矩阵
-similarities = cosine_similarity(image_embeddings, image_embeddings)
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(image_embeddings))
 
-# 寻找相似图像
-for i in range(len(similarities)):
-    # 找到相似度大于阈值的索引
-    similar_indices = cp.where(similarities[i,] > THRESHOLD)[0]
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
 
-    # 根据索引获取相应的 posting_id 值，并转换为数组
-    similar_posting_ids = test.iloc[cp.asnumpy(similar_indices)].posting_id.values
-
-    preds.append(similar_posting_ids)
+    for k in range(b - a):
+        similar_indices = indices[k]
+        o = test.iloc[cp.asnumpy(similar_indices)].posting_id.values
+        preds.append(o)
 
 test['preds2'] = preds
 test.head()
