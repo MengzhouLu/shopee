@@ -254,10 +254,10 @@ for j in range(CTS):
 test['preds2'] = preds
 test.head()
 
-# image_embeddings=image_embeddings.get()
-# del image_embeddings
+image_embeddings=image_embeddings.get()
+del image_embeddings
 cp.get_default_memory_pool().free_all_blocks()#释放显存
-
+_ = gc.collect()
 
 print('Computing text embeddings...')
 model = TfidfVectorizer(stop_words=None,
