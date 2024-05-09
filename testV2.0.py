@@ -284,7 +284,8 @@ for text in tqdm(text_data):
     outputs = model(**tokens)
     embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
 
-
+del model
+_ = gc.collect()
 text_embeddings = np.concatenate(embeddings)
 
 print(text_embeddings.shape)
