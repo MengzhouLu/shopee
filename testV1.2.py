@@ -245,7 +245,7 @@ for j in range(CTS):
     # 寻找相似的邻居
     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
 
-    threshold = 0.9  # 设置相似度阈值
+    threshold = 0.1  # 设置相似度阈值
 
     for k in range(b - a):
         similar_indices = indices[k]
@@ -257,6 +257,7 @@ for j in range(CTS):
         o = test.iloc[cp.asnumpy(similar_indices_filtered)].posting_id.values
         preds.append(o)
     del distances, indices
+print(preds)
 test['preds2'] = preds
 test.head()
 
