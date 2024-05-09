@@ -218,7 +218,7 @@ import cupy as cp
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
 
-for threshold in [0.9,0.8,0.75, 0.5, 0.25]:
+for threshold in [0.9,0.8,0.75,0.7,0.65,0.6,0.55,0.52, 0.5,0.47,0.45,0.4,0.3 ,0.25]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4
@@ -235,7 +235,6 @@ for threshold in [0.9,0.8,0.75, 0.5, 0.25]:
         distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
         # 将距离转换为相似度
         similarities = 1 / (1 + distances)
-        print('similarities shape', similarities.shape)
 
         for k in range(b - a):
             IDX = cp.where(similarities[k,] > threshold)[0]
