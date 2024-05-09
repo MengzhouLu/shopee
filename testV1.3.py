@@ -282,6 +282,12 @@ print('Computing text embeddings...')
 with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
     text_embeddings = pickle.load(f)
 
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(text_embeddings)
+# 假设 image_embeddings 是图像的嵌入向量
+text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
 
 threshold = 0.75
 print(f"threshold: {threshold}")
