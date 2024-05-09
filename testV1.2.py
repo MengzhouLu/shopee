@@ -219,6 +219,7 @@ print('image embeddings shape', image_embeddings.shape)
 
 KNN = 50
 if len(test)==3: KNN = 2
+print(KNN)
 model = NearestNeighbors(n_neighbors=KNN)
 model.fit(image_embeddings)
 
@@ -244,7 +245,7 @@ for j in range(CTS):
     # 寻找相似的邻居
     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
 
-    threshold = 0.5  # 设置相似度阈值
+    threshold = 0.9  # 设置相似度阈值
 
     for k in range(b - a):
         similar_indices = indices[k]
