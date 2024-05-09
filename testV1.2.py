@@ -241,24 +241,19 @@ if len(image_embeddings) % CHUNK != 0:
 for j in range(CTS):
     a = j * CHUNK
     b = min((j + 1) * CHUNK, len(image_embeddings))
-
+    print('chunk',a,'to',b)
     # 寻找相似的邻居
     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-
-    threshold = 0.5  # 设置相似度阈值
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+    print('similarities shape',similarities.shape)
 
     for k in range(b - a):
-        similar_indices = indices[k]
-        similar_distances = distances[k]
-
-        # 过滤出相似度大于0.5的邻居
-        filtered_indices = cp.where(similar_distances > threshold)
-        similar_indices_filtered = similar_indices[filtered_indices]
-
-        o = test.iloc[cp.asnumpy(similar_indices_filtered)].posting_id.values
+        IDX = cp.where(similarities[k,] < 0.75)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
         preds.append(o)
+
     del distances, indices
-print(preds)
 test['preds2'] = preds
 test.head()
 
