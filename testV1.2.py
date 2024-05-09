@@ -260,7 +260,7 @@ for j in range(CTS):
         preds.append(o)
 
     del distances, indices
-test[f'preds{threshold}'] = preds
+test['preds2'] = preds
 test.head()
 
 image_embeddings = image_embeddings.get()
