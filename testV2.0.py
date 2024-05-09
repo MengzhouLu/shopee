@@ -276,6 +276,7 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 model = BertModel.from_pretrained(model_name)
 # 准备输入数据
 text_data = test_gf.title.values  # 假设test_gf.title是你的文本数据
+print(text_data[:5])
 
 # 将文本转换为BERT嵌入向量
 tokens = tokenizer(text_data, padding=True, truncation=True, return_tensors='pt', max_length=128)
