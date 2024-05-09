@@ -199,30 +199,30 @@ def load_model(model, model_file):
 import math
 from tqdm import tqdm
 
-WGT = './b0ns_256_bert_20ep_fold0_epoch27.pth'
-
-model = enet_arcface_FINAL('tf_efficientnet_b0_ns', out_dim=11014).cuda()
-model = load_model(model, WGT)
-
-embeds = []
-
-with torch.no_grad():
-    for img, input_ids, attention_mask in tqdm(test_loader):
-        img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
-        feat, _ = model(img, input_ids, attention_mask)
-        image_embeddings = feat.detach().cpu().numpy()
-        embeds.append(image_embeddings)
-
-del model
-_ = gc.collect()
-image_embeddings = np.concatenate(embeds)
+# WGT = './b0ns_256_bert_20ep_fold0_epoch27.pth'
+#
+# model = enet_arcface_FINAL('tf_efficientnet_b0_ns', out_dim=11014).cuda()
+# model = load_model(model, WGT)
+#
+# embeds = []
+#
+# with torch.no_grad():
+#     for img, input_ids, attention_mask in tqdm(test_loader):
+#         img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
+#         feat, _ = model(img, input_ids, attention_mask)
+#         image_embeddings = feat.detach().cpu().numpy()
+#         embeds.append(image_embeddings)
+#
+# del model
+# _ = gc.collect()
+# image_embeddings = np.concatenate(embeds)
 
 
 # with open('image_embeddings.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(image_embeddings, f)
 
-# with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
-#     image_embeddings = pickle.load(f)
+with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+    image_embeddings = pickle.load(f)
 
 KNN = 50
 if len(test)==3: KNN = 2
@@ -270,18 +270,19 @@ cp.get_default_memory_pool().free_all_blocks()  # 释放显存
 _ = gc.collect()
 
 print('Computing text embeddings...')
-model = TfidfVectorizer(stop_words=None,
-                        binary=True,
-                        max_features=25000)
-text_embeddings = model.fit_transform(test_gf.title).toarray()
-print('text embeddings shape', text_embeddings.shape)
+
+# model = TfidfVectorizer(stop_words=None,
+#                         binary=True,
+#                         max_features=25000)
+# text_embeddings = model.fit_transform(test_gf.title).toarray()
+# print('text embeddings shape', text_embeddings.shape)
 #
 #
 # with open('text_embeddings.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(text_embeddings, f)
 #
-# with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
-#     text_embeddings = pickle.load(f)
+with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
+    text_embeddings = pickle.load(f)
 
 KNN = 50
 if len(test)==3: KNN = 2
@@ -325,18 +326,18 @@ test['preds'] = preds
 test.head()
 
 
-tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
-test['preds3'] = test.image_phash.map(tmp)
-test.head()
+# tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
+# test['preds3'] = test.image_phash.map(tmp)
+# test.head()
 
 
 def combine_for_sub(row):
-    x = np.concatenate([row.preds, row.preds2, row.preds3])
+    x = np.concatenate([row.preds, row.preds2])
     return ' '.join(np.unique(x))
 
 
 def combine_for_cv(row):
-    x = np.concatenate([row.preds, row.preds2, row.preds3])
+    x = np.concatenate([row.preds, row.preds2])
     return np.unique(x)
 
 
@@ -351,7 +352,7 @@ test['matches'] = test.apply(combine_for_sub, axis=1)
 
 print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
 print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
-print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+# print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
 
 test
 
