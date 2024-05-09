@@ -288,9 +288,9 @@ for text in tqdm(text_data[:1000]):
 
 del model
 _ = gc.collect()
-text_embeddings = np.concatenate(embeddings)
-text_embeddings.view(1000,-1)
+text_embeddings = np.concatenate(embeddings,axis=0)
 print(text_embeddings.shape)
+
 # model = TfidfVectorizer(stop_words=None,
 #                         binary=True,
 #                         max_features=25000)
