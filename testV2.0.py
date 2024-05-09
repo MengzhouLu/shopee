@@ -273,7 +273,8 @@ print('Computing text embeddings...')
 
 model_name = './bert base uncased'
 tokenizer = BertTokenizer.from_pretrained(model_name)
-model = BertModel.from_pretrained(model_name).cuda()
+model = BertModel.from_pretrained(model_name)
+# model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
