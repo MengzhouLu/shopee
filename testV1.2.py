@@ -199,7 +199,7 @@ import math
 from tqdm import tqdm
 
 
-
+image_embeddings=[]
 import pickle
 with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
     image_embeddings = pickle.load(f)
@@ -217,6 +217,7 @@ import cupy as cp
 
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+
 for threshold in [0.9,0.8,0.75, 0.5, 0.25]:
     print(f"threshold: {threshold}")
     preds = []
@@ -229,7 +230,7 @@ for threshold in [0.9,0.8,0.75, 0.5, 0.25]:
     for j in range(CTS):
         a = j * CHUNK
         b = min((j + 1) * CHUNK, len(image_embeddings))
-        print('chunk', a, 'to', b)
+        #print('chunk', a, 'to', b)
         # 寻找相似的邻居
         distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
         # 将距离转换为相似度
