@@ -245,14 +245,15 @@ for j in range(CTS):
     # 寻找相似的邻居
     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
 
-    threshold = 0.1  # 设置相似度阈值
+    threshold = 0.5  # 设置相似度阈值
 
     for k in range(b - a):
         similar_indices = indices[k]
         similar_distances = distances[k]
 
         # 过滤出相似度大于0.5的邻居
-        similar_indices_filtered = similar_indices[similar_distances > threshold]
+        filtered_indices = cp.where(similar_distances > threshold)
+        similar_indices_filtered = similar_indices[filtered_indices]
 
         o = test.iloc[cp.asnumpy(similar_indices_filtered)].posting_id.values
         preds.append(o)
