@@ -255,7 +255,7 @@ for j in range(CTS):
 
     del distances, indices
 
-print('preds shape',preds.shape)
+print('preds shape',len(preds))
 test['preds2'] = preds
 test.head()
 
