@@ -249,11 +249,13 @@ for j in range(CTS):
     print('similarities shape',similarities.shape)
 
     for k in range(b - a):
-        IDX = cp.where(similarities[k,] < 0.75)[0]
+        IDX = cp.where(similarities[k,] < 0.5)[0]
         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
         preds.append(o)
 
     del distances, indices
+
+print('preds shape',preds.shape)
 test['preds2'] = preds
 test.head()
 
@@ -262,66 +264,4 @@ del image_embeddings
 cp.get_default_memory_pool().free_all_blocks()#释放显存
 _ = gc.collect()
 
-print('Computing text embeddings...')
-model = TfidfVectorizer(stop_words=None,
-                        binary=True,
-                        max_features=25000)
-text_embeddings = model.fit_transform(test_gf.title).toarray()
-print('text embeddings shape',text_embeddings.shape)
-
-preds = []
-CHUNK = 1024 * 4
-
-print('Finding similar titles...')
-CTS = len(test) // CHUNK
-if len(test) % CHUNK != 0: CTS += 1
-for j in range(CTS):
-
-    a = j * CHUNK
-    b = (j + 1) * CHUNK
-    b = min(b, len(test))
-    print('chunk', a, 'to', b)
-
-    # COSINE SIMILARITY DISTANCE
-    cts = cupy.matmul(text_embeddings, text_embeddings[a:b].T).T
-
-    for k in range(b - a):
-        IDX = cupy.where(cts[k,] > 0.75)[0]
-        o = test.iloc[cupy.asnumpy(IDX)].posting_id.values
-        preds.append(o)
-
-test['preds'] = preds
-test.head()
-
-tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
-test['preds3'] = test.image_phash.map(tmp)
-test.head()
-del text_embeddings
-
-
-def combine_for_sub(row):
-    x = np.concatenate([row.preds, row.preds2, row.preds3])
-    return ' '.join( np.unique(x) )
-
-def combine_for_cv(row):
-    x = np.concatenate([row.preds, row.preds2, row.preds3])
-    return np.unique(x)
-
-if COMPUTE_CV:
-    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-    test['target'] = test.label_group.map(tmp)
-    test['oof'] = test.apply(combine_for_cv,axis=1)
-    test['f1'] = test.apply(getMetric('oof'),axis=1)
-    print('CV Score =', test.f1.mean() )
-
-test['matches'] = test.apply(combine_for_sub,axis=1)
-
 print("CV for image :", round(test.apply(getMetric('preds2'),axis=1).mean(), 3))
-print("CV for text  :", round(test.apply(getMetric('preds'),axis=1).mean(), 3))
-print("CV for phash :", round(test.apply(getMetric('preds3'),axis=1).mean(), 3))
-
-test
-
-test[['posting_id','matches']].to_csv('submission.csv',index=False)
-sub = pd.read_csv('submission.csv')
-sub.head()
