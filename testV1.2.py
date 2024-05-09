@@ -198,30 +198,9 @@ def load_model(model, model_file):
 import math
 from tqdm import tqdm
 
-WGT = './b0ns_256_bert_20ep_fold0_epoch27.pth'
 
-model = enet_arcface_FINAL('tf_efficientnet_b0_ns', out_dim=11014).cuda()
-model = load_model(model, WGT)
-
-embeds = []
-
-with torch.no_grad():
-    for img, input_ids, attention_mask in tqdm(test_loader):
-        img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
-        feat, _ = model(img, input_ids, attention_mask)
-        image_embeddings = feat.detach().cpu().numpy()
-        embeds.append(image_embeddings)
-
-del model
-_ = gc.collect()
-image_embeddings = np.concatenate(embeds)
-print('image embeddings shape', image_embeddings.shape)
 
 import pickle
-with open('image_embeddings.pkl', 'wb') as f:    #Pickling
-    pickle.dump(image_embeddings, f)
-
-
 with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
     image_embeddings = pickle.load(f)
 
@@ -257,13 +236,13 @@ for j in range(CTS):
     print('similarities shape',similarities.shape)
 
     for k in range(b - a):
-        IDX = cp.where(similarities[k,] < 0.75)[0]
+        IDX = cp.where(similarities[k,] > 0.75)[0]
         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
         preds.append(o)
 
     del distances, indices
 
-print('preds shape',preds.shape)
+print(preds)
 test['preds2'] = preds
 test.head()
 
