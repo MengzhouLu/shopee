@@ -275,7 +275,7 @@ model_name = './bert base uncased'
 tokenizer = BertTokenizer.from_pretrained(model_name)
 model = BertModel.from_pretrained(model_name)
 # 准备输入数据
-text_data = test.title.values  # 假设test.title是你的文本数据
+text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
 
 # 将文本转换为BERT嵌入向量
