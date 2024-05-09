@@ -328,7 +328,6 @@ test.head()
 tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
 test['preds3'] = test.image_phash.map(tmp)
 test.head()
-del text_embeddings
 
 
 def combine_for_sub(row):
