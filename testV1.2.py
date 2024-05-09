@@ -256,7 +256,6 @@ if COMPUTE_CV:
     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
     test['target'] = test.label_group.map(tmp)
 
-    print('CV Score =', test.f1.mean() )
 
 print("CV for image :", round(test.apply(getMetric('preds2'),axis=1).mean(), 3))
 
