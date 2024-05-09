@@ -221,55 +221,67 @@ from tqdm import tqdm
 # with open('image_embeddings.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(image_embeddings, f)
 
-with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
-    image_embeddings = pickle.load(f)
-
-KNN = 50
-if len(test)==3: KNN = 2
-model = NearestNeighbors(n_neighbors=KNN)
-model.fit(image_embeddings)
-
-
-import pandas as pd
-import cupy as cp
-
-
-# 假设 image_embeddings 是图像的嵌入向量
-image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-threshold = 0.475
-
-print(f"threshold: {threshold}")
-preds = []
-CHUNK = 1024 * 4
-print('Finding similar images...')
-CTS = len(image_embeddings) // CHUNK
-if len(image_embeddings) % CHUNK != 0:
-    CTS += 1
-
-for j in range(CTS):
-    a = j * CHUNK
-    b = min((j + 1) * CHUNK, len(image_embeddings))
-    print('chunk', a, 'to', b)
-    # 寻找相似的邻居
-    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-    # 将距离转换为相似度
-    similarities = 1 / (1 + distances)
-
-    for k in range(b - a):
-        IDX = cp.where(similarities[k,] > threshold)[0]
-        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-        preds.append(o)
-
-    del distances, indices
-test['preds2'] = preds
-test.head()
-
-image_embeddings = image_embeddings.get()
-del image_embeddings
-cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-_ = gc.collect()
+# with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+#     image_embeddings = pickle.load(f)
+#
+# KNN = 50
+# if len(test)==3: KNN = 2
+# model = NearestNeighbors(n_neighbors=KNN)
+# model.fit(image_embeddings)
+#
+#
+# import pandas as pd
+# import cupy as cp
+#
+#
+# # 假设 image_embeddings 是图像的嵌入向量
+# image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+# threshold = 0.475
+#
+# print(f"threshold: {threshold}")
+# preds = []
+# CHUNK = 1024 * 4
+# print('Finding similar images...')
+# CTS = len(image_embeddings) // CHUNK
+# if len(image_embeddings) % CHUNK != 0:
+#     CTS += 1
+#
+# for j in range(CTS):
+#     a = j * CHUNK
+#     b = min((j + 1) * CHUNK, len(image_embeddings))
+#     print('chunk', a, 'to', b)
+#     # 寻找相似的邻居
+#     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+#     # 将距离转换为相似度
+#     similarities = 1 / (1 + distances)
+#
+#     for k in range(b - a):
+#         IDX = cp.where(similarities[k,] > threshold)[0]
+#         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+#         preds.append(o)
+#
+#     del distances, indices
+# test['preds2'] = preds
+# test.head()
+#
+# image_embeddings = image_embeddings.get()
+# del image_embeddings
+# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+# _ = gc.collect()
 
 print('Computing text embeddings...')
+
+model_name = './bert base uncased'
+tokenizer = BertTokenizer.from_pretrained(model_name)
+model = BertModel.from_pretrained(model_name)
+# 准备输入数据
+text_data = list(test_gf.title)  # 假设test_gf.title是你的文本数据
+
+# 将文本转换为BERT嵌入向量
+tokens = tokenizer(text_data, padding=True, truncation=True, return_tensors='pt', max_length=128)
+outputs = model(**tokens)
+embeddings = outputs.last_hidden_state
+text_embeddings = embeddings.detach().cpu().numpy()
 
 # model = TfidfVectorizer(stop_words=None,
 #                         binary=True,
@@ -281,8 +293,8 @@ print('Computing text embeddings...')
 # with open('text_embeddings.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(text_embeddings, f)
 #
-with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
-    text_embeddings = pickle.load(f)
+# with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
+#     text_embeddings = pickle.load(f)
 
 KNN = 50
 if len(test)==3: KNN = 2
