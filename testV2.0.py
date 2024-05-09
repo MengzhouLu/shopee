@@ -273,13 +273,14 @@ print('Computing text embeddings...')
 
 model_name = './bert base uncased'
 tokenizer = BertTokenizer.from_pretrained(model_name)
-model = BertModel.from_pretrained(model_name)
+model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
 
 embeddings = []
-for text in tqdm(text_data):
+for text in tqdm(text_data[:1000]):
+    text.cuda()
     tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
     outputs = model(**tokens)
     embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
@@ -287,7 +288,7 @@ for text in tqdm(text_data):
 del model
 _ = gc.collect()
 text_embeddings = np.concatenate(embeddings)
-
+text_embeddings.view(1000,-1)
 print(text_embeddings.shape)
 # model = TfidfVectorizer(stop_words=None,
 #                         binary=True,
