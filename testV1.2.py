@@ -217,6 +217,14 @@ _ = gc.collect()
 image_embeddings = np.concatenate(embeds)
 print('image embeddings shape', image_embeddings.shape)
 
+import pickle
+with open('image_embeddings.pkl', 'wb') as f:    #Pickling
+    pickle.dump(image_embeddings, f)
+
+
+with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+    image_embeddings = pickle.load(f)
+
 KNN = 50
 if len(test)==3: KNN = 2
 print(KNN)
@@ -249,13 +257,13 @@ for j in range(CTS):
     print('similarities shape',similarities.shape)
 
     for k in range(b - a):
-        IDX = cp.where(similarities[k,] < 0.5)[0]
+        IDX = cp.where(similarities[k,] < 0.75)[0]
         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
         preds.append(o)
 
     del distances, indices
 
-print('preds shape',len(preds))
+print('preds shape',preds.shape)
 test['preds2'] = preds
 test.head()
 
@@ -264,4 +272,18 @@ del image_embeddings
 cp.get_default_memory_pool().free_all_blocks()#释放显存
 _ = gc.collect()
 
+
+if COMPUTE_CV:
+    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+    test['target'] = test.label_group.map(tmp)
+
+    print('CV Score =', test.f1.mean() )
+
 print("CV for image :", round(test.apply(getMetric('preds2'),axis=1).mean(), 3))
+
+
+test
+
+test[['posting_id','matches']].to_csv('submission.csv',index=False)
+sub = pd.read_csv('submission.csv')
+sub.head()
