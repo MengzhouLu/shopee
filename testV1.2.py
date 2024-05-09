@@ -1,0 +1,329 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+import sys
+sys.path = [
+    './geffnet-20200820'
+] + sys.path
+#配置环境
+import numpy as np, pandas as pd, gc
+import cv2, matplotlib.pyplot as plt
+import cudf, cuml, cupy
+from cuml.feature_extraction.text import TfidfVectorizer
+from cuml.neighbors import NearestNeighbors
+
+import albumentations
+import torch
+from torch.utils.data import DataLoader, Dataset
+import torch.nn as nn
+import torch.nn.functional as F
+
+import geffnet
+from transformers import *
+
+COMPUTE_CV = True
+
+test = pd.read_csv('./test.csv')
+if len(test)>3: COMPUTE_CV = False
+else: print('this submission notebook will compute CV score, but commit notebook will not')
+
+train = pd.read_csv('./train.csv')
+tmp = train.groupby('label_group').posting_id.agg('unique').to_dict()
+train['target'] = train.label_group.map(tmp)
+print('train shape is', train.shape )
+train.head()
+
+tmp = train.groupby('image_phash').posting_id.agg('unique').to_dict()
+train['oof'] = train.image_phash.map(tmp)
+
+def getMetric(col):
+    def f1score(row):
+        n = len( np.intersect1d(row.target,row[col]) )
+        return 2*n / (len(row.target)+len(row[col]))
+    return f1score
+
+train['f1'] = train.apply(getMetric('oof'),axis=1)
+print('CV score for baseline =',train.f1.mean())
+
+if COMPUTE_CV:
+    test = pd.read_csv('./train_fold.csv')
+#     test = test[test.fold==0]
+    test_gf = cudf.DataFrame(test)
+    print('Using train as test to compute CV (since commit notebook). Shape is', test_gf.shape )
+else:
+    test = pd.read_csv('./test.csv')
+    test_gf = cudf.read_csv('./test.csv')
+    print('Test shape is', test_gf.shape )
+test_gf.head()
+
+import os
+
+
+def get_transforms(img_size=256):
+    return albumentations.Compose([
+        albumentations.Resize(img_size, img_size),
+        albumentations.Normalize()
+    ])
+
+
+class LandmarkDataset(Dataset):
+    def __init__(self, csv, split, mode, transforms=get_transforms(img_size=256), tokenizer=None):
+
+        self.csv = csv.reset_index()
+        self.split = split
+        self.mode = mode
+        self.transform = transforms
+        self.tokenizer = tokenizer
+
+    def __len__(self):
+        return self.csv.shape[0]
+
+    def __getitem__(self, index):
+        row = self.csv.iloc[index]
+
+        text = row.title
+
+        image = cv2.imread(row.filepath)
+        image = image[:, :, ::-1]
+
+        res0 = self.transform(image=image)
+        image0 = res0['image'].astype(np.float32)
+        image = image0.transpose(2, 0, 1)
+
+        text = self.tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
+        input_ids = text['input_ids'][0]
+        attention_mask = text['attention_mask'][0]
+
+        if self.mode == 'test':
+            return torch.tensor(image), input_ids, attention_mask
+        else:
+            return torch.tensor(image), input_ids, attention_mask, torch.tensor(row.label_group)
+
+tokenizer = AutoTokenizer.from_pretrained('./bert base uncased')
+
+if not COMPUTE_CV:
+    df_sub = pd.read_csv('./test.csv')
+
+    df_test = df_sub.copy()
+    df_test['filepath'] = df_test['image'].apply(lambda x: os.path.join('./', 'test_images', x))
+
+    dataset_test = LandmarkDataset(df_test, 'test', 'test', transforms=get_transforms(img_size=256), tokenizer=tokenizer)
+    test_loader = DataLoader(dataset_test, batch_size=16, num_workers=4)
+
+    print(len(dataset_test),dataset_test[0])
+else:
+    df_sub = test
+
+    df_test = df_sub.copy()
+    df_test['filepath'] = df_test['image'].apply(lambda x: os.path.join('./', 'train_images', x))
+
+    dataset_test = LandmarkDataset(df_test, 'test', 'test', transforms=get_transforms(img_size=256), tokenizer=tokenizer)
+    test_loader = DataLoader(dataset_test, batch_size=16, num_workers=4)
+
+    print(len(dataset_test),dataset_test[0])
+
+
+class ArcMarginProduct_subcenter(nn.Module):
+    def __init__(self, in_features, out_features, k=3):
+        super().__init__()
+        self.weight = nn.Parameter(torch.FloatTensor(out_features * k, in_features))
+        self.reset_parameters()
+        self.k = k
+        self.out_features = out_features
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+
+    def forward(self, features):
+        cosine_all = F.linear(F.normalize(features), F.normalize(self.weight))
+        cosine_all = cosine_all.view(-1, self.out_features, self.k)
+        cosine, _ = torch.max(cosine_all, dim=2)
+        return cosine
+
+
+sigmoid = torch.nn.Sigmoid()
+
+
+class Swish(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, i):
+        result = i * sigmoid(i)
+        ctx.save_for_backward(i)
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        i = ctx.saved_variables[0]
+        sigmoid_i = sigmoid(i)
+        return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
+
+
+class Swish_module(nn.Module):
+    def forward(self, x):
+        return Swish.apply(x)
+
+
+class enet_arcface_FINAL(nn.Module):
+
+    def __init__(self, enet_type, out_dim):
+        super(enet_arcface_FINAL, self).__init__()
+        self.bert = AutoModel.from_pretrained('./bert base uncased')
+        self.enet = geffnet.create_model(enet_type.replace('-', '_'), pretrained=None)
+        self.feat = nn.Linear(self.enet.classifier.in_features + self.bert.config.hidden_size, 512)
+        self.swish = Swish_module()
+        self.dropout = nn.Dropout(0.5)
+        self.metric_classify = ArcMarginProduct_subcenter(512, out_dim)
+        self.enet.classifier = nn.Identity()
+
+    def forward(self, x, input_ids, attention_mask):
+        x = self.enet(x)
+        text = self.bert(input_ids=input_ids, attention_mask=attention_mask)[1]
+        x = torch.cat([x, text], 1)
+        x = self.swish(self.feat(x))
+        return F.normalize(x), self.metric_classify(x)
+
+
+def load_model(model, model_file):
+    state_dict = torch.load(model_file)
+    if "model_state_dict" in state_dict.keys():
+        state_dict = state_dict["model_state_dict"]
+    state_dict = {k[7:] if k.startswith('module.') else k: state_dict[k] for k in state_dict.keys()}
+    #     del state_dict['metric_classify.weight']
+    model.load_state_dict(state_dict, strict=False)
+    print(f"loaded {model_file}")
+    model.eval()
+    return model
+
+
+import math
+from tqdm import tqdm
+
+WGT = './b0ns_256_bert_20ep_fold0_epoch27.pth'
+
+model = enet_arcface_FINAL('tf_efficientnet_b0_ns', out_dim=11014).cuda()
+model = load_model(model, WGT)
+
+embeds = []
+
+with torch.no_grad():
+    for img, input_ids, attention_mask in tqdm(test_loader):
+        img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
+        feat, _ = model(img, input_ids, attention_mask)
+        image_embeddings = feat.detach().cpu().numpy()
+        embeds.append(image_embeddings)
+
+del model
+_ = gc.collect()
+image_embeddings = np.concatenate(embeds)
+print('image embeddings shape', image_embeddings.shape)
+
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(image_embeddings)
+
+
+import pandas as pd
+import cupy as cp
+
+
+# 假设 image_embeddings 是图像的嵌入向量
+image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+
+preds = []
+CHUNK = 1024*4
+print('Finding similar images...')
+CTS = len(image_embeddings) // CHUNK
+if len(image_embeddings) % CHUNK != 0:
+    CTS += 1
+
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(image_embeddings))
+
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+
+    threshold = 0.5  # 设置相似度阈值
+
+    for k in range(b - a):
+        similar_indices = indices[k]
+        similar_distances = distances[k]
+
+        # 过滤出相似度大于0.5的邻居
+        similar_indices_filtered = similar_indices[similar_distances > threshold]
+
+        o = test.iloc[cp.asnumpy(similar_indices_filtered)].posting_id.values
+        preds.append(o)
+    del distances, indices
+test['preds2'] = preds
+test.head()
+
+image_embeddings=image_embeddings.get()
+del image_embeddings
+cp.get_default_memory_pool().free_all_blocks()#释放显存
+_ = gc.collect()
+
+print('Computing text embeddings...')
+model = TfidfVectorizer(stop_words=None,
+                        binary=True,
+                        max_features=25000)
+text_embeddings = model.fit_transform(test_gf.title).toarray()
+print('text embeddings shape',text_embeddings.shape)
+
+preds = []
+CHUNK = 1024 * 4
+
+print('Finding similar titles...')
+CTS = len(test) // CHUNK
+if len(test) % CHUNK != 0: CTS += 1
+for j in range(CTS):
+
+    a = j * CHUNK
+    b = (j + 1) * CHUNK
+    b = min(b, len(test))
+    print('chunk', a, 'to', b)
+
+    # COSINE SIMILARITY DISTANCE
+    cts = cupy.matmul(text_embeddings, text_embeddings[a:b].T).T
+
+    for k in range(b - a):
+        IDX = cupy.where(cts[k,] > 0.75)[0]
+        o = test.iloc[cupy.asnumpy(IDX)].posting_id.values
+        preds.append(o)
+
+test['preds'] = preds
+test.head()
+
+tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
+test['preds3'] = test.image_phash.map(tmp)
+test.head()
+del text_embeddings
+
+
+def combine_for_sub(row):
+    x = np.concatenate([row.preds, row.preds2, row.preds3])
+    return ' '.join( np.unique(x) )
+
+def combine_for_cv(row):
+    x = np.concatenate([row.preds, row.preds2, row.preds3])
+    return np.unique(x)
+
+if COMPUTE_CV:
+    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+    test['target'] = test.label_group.map(tmp)
+    test['oof'] = test.apply(combine_for_cv,axis=1)
+    test['f1'] = test.apply(getMetric('oof'),axis=1)
+    print('CV Score =', test.f1.mean() )
+
+test['matches'] = test.apply(combine_for_sub,axis=1)
+
+print("CV for image :", round(test.apply(getMetric('preds2'),axis=1).mean(), 3))
+print("CV for text  :", round(test.apply(getMetric('preds'),axis=1).mean(), 3))
+print("CV for phash :", round(test.apply(getMetric('preds3'),axis=1).mean(), 3))
+
+test
+
+test[['posting_id','matches']].to_csv('submission.csv',index=False)
+sub = pd.read_csv('submission.csv')
+sub.head()
