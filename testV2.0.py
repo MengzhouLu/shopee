@@ -280,7 +280,7 @@ print(text_data[:5])
 
 embeddings = []
 for text in tqdm(text_data[:1000]):
-    text.cuda()
+
     tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
     outputs = model(**tokens)
     embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
