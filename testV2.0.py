@@ -278,11 +278,15 @@ model = BertModel.from_pretrained(model_name)
 text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
 
-# 将文本转换为BERT嵌入向量
-tokens = tokenizer(text_data, padding=True, truncation=True, return_tensors='pt', max_length=128)
-outputs = model(**tokens)
-embeddings = outputs.last_hidden_state
-text_embeddings = embeddings.detach().cpu().numpy()
+embeddings = []
+for text in tqdm(text_data):
+    tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
+    outputs = model(**tokens)
+    embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
+
+
+text_embeddings = np.concatenate(embeddings)
+
 print(text_embeddings.shape)
 # model = TfidfVectorizer(stop_words=None,
 #                         binary=True,
