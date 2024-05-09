@@ -246,10 +246,10 @@ for threshold in [0.9,0.8,0.75, 0.5, 0.25]:
     test[f'preds{threshold}'] = preds
     test.head()
 
-    image_embeddings = image_embeddings.get()
-    del image_embeddings
-    cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-    _ = gc.collect()
+    # image_embeddings = image_embeddings.get()
+    # del image_embeddings
+    # cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+    # _ = gc.collect()
 
     if COMPUTE_CV:
         tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
