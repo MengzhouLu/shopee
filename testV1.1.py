@@ -222,12 +222,10 @@ if len(test)==3: KNN = 2
 model = NearestNeighbors(n_neighbors=KNN)
 model.fit(image_embeddings)
 
-import cupy as cp
-import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
 
+import pandas as pd
 import cupy as cp
-from sklearn.neighbors import NearestNeighbors
+
 
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
