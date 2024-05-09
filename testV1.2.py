@@ -217,51 +217,42 @@ import cupy as cp
 
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+for threshold in [0.9,0.8,0.75, 0.5, 0.25]:
+    print(f"threshold: {threshold}")
+    preds = []
+    CHUNK = 1024 * 4
+    print('Finding similar images...')
+    CTS = len(image_embeddings) // CHUNK
+    if len(image_embeddings) % CHUNK != 0:
+        CTS += 1
 
-preds = []
-CHUNK = 1024*4
-print('Finding similar images...')
-CTS = len(image_embeddings) // CHUNK
-if len(image_embeddings) % CHUNK != 0:
-    CTS += 1
+    for j in range(CTS):
+        a = j * CHUNK
+        b = min((j + 1) * CHUNK, len(image_embeddings))
+        print('chunk', a, 'to', b)
+        # 寻找相似的邻居
+        distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+        # 将距离转换为相似度
+        similarities = 1 / (1 + distances)
+        print('similarities shape', similarities.shape)
 
-for j in range(CTS):
-    a = j * CHUNK
-    b = min((j + 1) * CHUNK, len(image_embeddings))
-    print('chunk',a,'to',b)
-    # 寻找相似的邻居
-    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-    # 将距离转换为相似度
-    similarities = 1 / (1 + distances)
-    print('similarities shape',similarities.shape)
+        for k in range(b - a):
+            IDX = cp.where(similarities[k,] > threshold)[0]
+            o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+            preds.append(o)
 
-    for k in range(b - a):
-        IDX = cp.where(similarities[k,] > 0.75)[0]
-        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-        preds.append(o)
+        del distances, indices
+    test[f'preds{threshold}'] = preds
+    test.head()
 
-    del distances, indices
+    image_embeddings = image_embeddings.get()
+    del image_embeddings
+    cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+    _ = gc.collect()
 
-print(preds)
-test['preds2'] = preds
-test.head()
+    if COMPUTE_CV:
+        tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+        test['target'] = test.label_group.map(tmp)
 
-image_embeddings=image_embeddings.get()
-del image_embeddings
-cp.get_default_memory_pool().free_all_blocks()#释放显存
-_ = gc.collect()
+    print("CV for image :", round(test.apply(getMetric(f'preds{threshold}'), axis=1).mean(), 3))
 
-
-if COMPUTE_CV:
-    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-    test['target'] = test.label_group.map(tmp)
-
-
-print("CV for image :", round(test.apply(getMetric('preds2'),axis=1).mean(), 3))
-
-
-test
-
-test[['posting_id','matches']].to_csv('submission.csv',index=False)
-sub = pd.read_csv('submission.csv')
-sub.head()
