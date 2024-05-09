@@ -283,7 +283,7 @@ tokens = tokenizer(text_data, padding=True, truncation=True, return_tensors='pt'
 outputs = model(**tokens)
 embeddings = outputs.last_hidden_state
 text_embeddings = embeddings.detach().cpu().numpy()
-
+print(text_embeddings.shape)
 # model = TfidfVectorizer(stop_words=None,
 #                         binary=True,
 #                         max_features=25000)
