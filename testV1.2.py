@@ -198,15 +198,33 @@ def load_model(model, model_file):
 import math
 from tqdm import tqdm
 
+WGT = './b0ns_256_bert_20ep_fold0_epoch27.pth'
 
-image_embeddings=[]
+model = enet_arcface_FINAL('tf_efficientnet_b0_ns', out_dim=11014).cuda()
+model = load_model(model, WGT)
+
+embeds = []
+
+with torch.no_grad():
+    for img, input_ids, attention_mask in tqdm(test_loader):
+        img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
+        feat, _ = model(img, input_ids, attention_mask)
+        image_embeddings = feat.detach().cpu().numpy()
+        embeds.append(image_embeddings)
+
+del model
+_ = gc.collect()
+image_embeddings = np.concatenate(embeds)
+
 import pickle
+with open('image_embeddings.pkl', 'wb') as f:    #Pickling
+    pickle.dump(image_embeddings, f)
+
 with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
     image_embeddings = pickle.load(f)
 
 KNN = 50
 if len(test)==3: KNN = 2
-print(KNN)
 model = NearestNeighbors(n_neighbors=KNN)
 model.fit(image_embeddings)
 
@@ -217,42 +235,101 @@ import cupy as cp
 
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+threshold = 0.475
 
-for threshold in [0.48,0.479,0.478,0.477,0.476,0.475,0.474,0.473]:
-    print(f"threshold: {threshold}")
-    preds = []
-    CHUNK = 1024 * 4
-    print('Finding similar images...')
-    CTS = len(image_embeddings) // CHUNK
-    if len(image_embeddings) % CHUNK != 0:
-        CTS += 1
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4
+print('Finding similar images...')
+CTS = len(image_embeddings) // CHUNK
+if len(image_embeddings) % CHUNK != 0:
+    CTS += 1
 
-    for j in range(CTS):
-        a = j * CHUNK
-        b = min((j + 1) * CHUNK, len(image_embeddings))
-        #print('chunk', a, 'to', b)
-        # 寻找相似的邻居
-        distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-        # 将距离转换为相似度
-        similarities = 1 / (1 + distances)
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(image_embeddings))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
 
-        for k in range(b - a):
-            IDX = cp.where(similarities[k,] > threshold)[0]
-            o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-            preds.append(o)
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
 
-        del distances, indices
-    test[f'preds{threshold}'] = preds
-    test.head()
+    del distances, indices
+test[f'preds{threshold}'] = preds
+test.head()
 
-    # image_embeddings = image_embeddings.get()
-    # del image_embeddings
-    # cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-    # _ = gc.collect()
+image_embeddings = image_embeddings.get()
+del image_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
 
-    if COMPUTE_CV:
-        tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-        test['target'] = test.label_group.map(tmp)
+print('Computing text embeddings...')
+model = TfidfVectorizer(stop_words=None,
+                        binary=True,
+                        max_features=25000)
+text_embeddings = model.fit_transform(test_gf.title).toarray()
+print('text embeddings shape', text_embeddings.shape)
 
-    print("CV for image :", round(test.apply(getMetric(f'preds{threshold}'), axis=1).mean(), 3))
+preds = []
+CHUNK = 1024 * 4
 
+print('Finding similar titles...')
+CTS = len(test) // CHUNK
+if len(test) % CHUNK != 0: CTS += 1
+for j in range(CTS):
+
+    a = j * CHUNK
+    b = (j + 1) * CHUNK
+    b = min(b, len(test))
+    print('chunk', a, 'to', b)
+
+    # COSINE SIMILARITY DISTANCE
+    cts = cupy.matmul(text_embeddings, text_embeddings[a:b].T).T
+
+    for k in range(b - a):
+        IDX = cupy.where(cts[k,] > 0.75)[0]
+        o = test.iloc[cupy.asnumpy(IDX)].posting_id.values
+        preds.append(o)
+
+test['preds'] = preds
+test.head()
+
+tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
+test['preds3'] = test.image_phash.map(tmp)
+test.head()
+del text_embeddings
+
+
+def combine_for_sub(row):
+    x = np.concatenate([row.preds, row.preds2, row.preds3])
+    return ' '.join(np.unique(x))
+
+
+def combine_for_cv(row):
+    x = np.concatenate([row.preds, row.preds2, row.preds3])
+    return np.unique(x)
+
+
+if COMPUTE_CV:
+    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+    test['target'] = test.label_group.map(tmp)
+    test['oof'] = test.apply(combine_for_cv, axis=1)
+    test['f1'] = test.apply(getMetric('oof'), axis=1)
+    print('CV Score =', test.f1.mean())
+
+test['matches'] = test.apply(combine_for_sub, axis=1)
+
+print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+
+test
+
+test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
+sub = pd.read_csv('submission.csv')
+sub.head()
