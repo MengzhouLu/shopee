@@ -338,15 +338,16 @@ model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 
 embeddings = []
-# model.eval()
-# with torch.no_grad():
-#     for title, _ in tqdm(title_loader):
-#         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
-#         outputs = model(**tokens)
-#         embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
-#
-# with open('title_embeddings.pkl', 'wb') as f:    #Pickling
-#     pickle.dump(embeddings, f)
+model.eval()
+with torch.no_grad():
+    for title, _ in tqdm(title_loader):
+        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
+        outputs = model(**tokens)
+        sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
+        embeddings.append(sentence_embeddings.cpu().numpy())
+
+with open('title_embeddings.pkl', 'wb') as f:    #Pickling
+    pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     embeddings = pickle.load(f)
@@ -439,9 +440,9 @@ def combine_for_cv(row):
 # print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
 print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
 # print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
-
-test
-
-test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
-sub = pd.read_csv('submission.csv')
-sub.head()
+#
+# test
+#
+# test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
+# sub = pd.read_csv('submission.csv')
+# sub.head()
