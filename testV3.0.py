@@ -5,6 +5,7 @@ sys.path = [
     './geffnet-20200820'
 ] + sys.path
 #配置环境
+import regex
 import numpy as np, pandas as pd, gc
 import cv2, matplotlib.pyplot as plt
 import cudf, cuml, cupy
@@ -310,6 +311,37 @@ class CFG:
     FC_DIM = 512
     MODEL_PATH = './bert base uncased'
     FEAT_PATH = f"../input/shopee-embeddings/{MODEL_NAME}_arcface.npy"
+
+
+measurements = {
+    'weight': [('mg',1), ('g', 1000), ('gr', 1000), ('gram', 1000), ('kg', 1000000)],
+    'length': [('mm',1), ('cm', 10), ('m',1000), ('meter', 1000)],
+    'pieces': [ ('pc',1)],
+    'memory': [('gb', 1)],
+    'volume': [('ml', 1), ('l', 1000), ('liter',1000)]
+}
+
+def to_num(x, mult=1):
+    x = x.replace(',','.')
+    return int(float(x)*mult)
+
+def extract_unit(tit, m):
+    pat = f'\W(\d+(?:[\,\.]\d+)?) ?{m}s?\W'
+    matches = regex.findall(pat, tit, overlapped=True)
+    return set(matches)
+
+def extract_and_replace(tit):
+    tit = ' ' + tit.lower() + ' '
+    for cat, units in measurements.items():
+        for unit_name, mult in units:
+            pat = f'\W(\d+(?:[\,\.]\d+)?) ?{unit_name}s?\W'
+            matches = regex.findall(pat, tit, overlapped=True)
+            for match in matches:
+                num = to_num(match, mult)
+                replacement = f"{num} {cat}"
+                tit = tit.replace(match, str(replacement))
+    return tit.strip()
+
 ### Dataset
 
 class TitleDataset(Dataset):
@@ -321,6 +353,7 @@ class TitleDataset(Dataset):
         for title in texts:
             title = title.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
             title = title.lower()
+            title=extract_and_replace(title)
             self.titles.append(title)
     def __len__(self):
         return len(self.titles)
@@ -331,6 +364,9 @@ class TitleDataset(Dataset):
 
 title_dataset = TitleDataset(test, 'title', 'label_group')
 title_loader = DataLoader(title_dataset, batch_size=128, num_workers=4)
+
+print(title_dataset[:20])
+
 
 
 model_name = './bertmodel'
@@ -343,21 +379,21 @@ model.cuda()
 bert_model=model
 # 准备输入数据
 
-# embeddings = []
-# model.eval()
-# with torch.no_grad():
-#     for title, _ in tqdm(title_loader):
-#         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=100, return_tensors="pt").to('cuda')
-#         outputs = bert_model(**tokens)
-#         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
-#         # embeddings.append(sentence_embeddings.cpu().numpy())
-#         embeddings.append(sentence_embeddings.detach().cpu())
-#
-#
-# embeddings=F.normalize(torch.cat(embeddings, dim=0),dim=1).numpy()
-# print(embeddings.shape)
-# with open('title_embeddings.pkl', 'wb') as f:    #Pickling
-#     pickle.dump(embeddings, f)
+embeddings = []
+model.eval()
+with torch.no_grad():
+    for title, _ in tqdm(title_loader):
+        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=100, return_tensors="pt").to('cuda')
+        outputs = bert_model(**tokens)
+        sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
+        # embeddings.append(sentence_embeddings.cpu().numpy())
+        embeddings.append(sentence_embeddings.detach().cpu())
+
+
+embeddings=F.normalize(torch.cat(embeddings, dim=0),dim=1).numpy()
+print(embeddings.shape)
+with open('title_embeddings.pkl', 'wb') as f:    #Pickling
+    pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     text_embeddings = pickle.load(f)
@@ -488,8 +524,7 @@ def embs_from_model(model, dl):
         if len(batch) ==2:
             bx,by=batch
         else:
-            # bx,=batch
-            bx=batch
+            bx,=batch
             by=torch.zeros(1)
         with torch.no_grad():
             embs = model(bx)
@@ -623,36 +658,7 @@ def show_groups(groups, targets):
     plt.title(f'score: {score_all_groups(groups, targets):.3f}')
     plt.show()
 
-measurements = {
-    'weight': [('mg',1), ('g', 1000), ('gr', 1000), ('gram', 1000), ('kg', 1000000)],
-    'length': [('mm',1), ('cm', 10), ('m',1000), ('meter', 1000)],
-    'pieces': [ ('pc',1)],
-    'memory': [('gb', 1)],
-    'volume': [('ml', 1), ('l', 1000), ('liter',1000)]
-}
 
-def to_num(x, mult=1):
-    x = x.replace(',','.')
-    return int(float(x)*mult)
-
-def extract_unit(tit, m):
-    pat = f'\W(\d+(?:[\,\.]\d+)?) ?{m}s?\W'
-    matches = regex.findall(pat, tit, overlapped=True)
-    return set(matches)
-
-def extract(tit):
-
-    res =dict()
-    tit = ' '+tit.lower()+' '
-    for cat, units in measurements.items():
-        cat_values=set()
-        for unit_name, mult in units:
-            values = extract_unit(tit, unit_name)
-            values = {to_num(v, mult) for v in values}
-            cat_values = cat_values.union(values)
-        if cat_values:
-            res[cat] = cat_values
-    return res
 
 def add_measurements(data):
     data['measurement'] = data.title.map(extract)
