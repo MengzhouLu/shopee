@@ -328,7 +328,7 @@ class TitleDataset(Dataset):
         return text, label
 
 title_dataset = TitleDataset(test, 'title', 'label_group')
-title_loader = DataLoader(title_dataset, batch_size=16, num_workers=4)
+title_loader = DataLoader(title_dataset, batch_size=128, num_workers=4)
 
 
 model_name = './bert base uncased'
@@ -337,17 +337,17 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 
-embeddings = []
-model.eval()
-with torch.no_grad():
-    for title, _ in tqdm(title_loader):
-        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
-        outputs = model(**tokens)
-        sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
-        embeddings.append(sentence_embeddings.cpu().numpy())
-
-with open('title_embeddings.pkl', 'wb') as f:    #Pickling
-    pickle.dump(embeddings, f)
+# embeddings = []
+# model.eval()
+# with torch.no_grad():
+#     for title, _ in tqdm(title_loader):
+#         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
+#         outputs = model(**tokens)
+#         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
+#         embeddings.append(sentence_embeddings.cpu().numpy())
+#
+# with open('title_embeddings.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     embeddings = pickle.load(f)
@@ -355,7 +355,7 @@ with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
 del model
 _ = gc.collect()
 text_embeddings = np.concatenate(embeddings, axis=0)
-text_embeddings = text_embeddings.reshape(test.shape[0], -1)
+# text_embeddings = text_embeddings.reshape(test.shape[0], -1)
 print(text_embeddings.shape)
 
 # model = TfidfVectorizer(stop_words=None,
@@ -380,65 +380,66 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
-threshold = 0.508
-print(f"threshold: {threshold}")
-preds = []
-CHUNK = 1024 * 4
+for threshold in [0.3,0.4, 0.48, 0.505, 0.585, 0.595, 0.605, 0.615, 0.625, 0.635, 0.645, 0.655, 0.665, 0.675, 0.685, 0.695, 0.705, 0.715, 0.725, 0.735, 0.745]:
+    print(f"threshold: {threshold}")
+    preds = []
+    CHUNK = 1024 * 4
 
-print('Finding similar titles...')
-CTS = len(test) // CHUNK
-if len(test) % CHUNK != 0: CTS += 1
-for j in range(CTS):
-    a = j * CHUNK
-    b = min((j + 1) * CHUNK, len(test))
-    print('chunk', a, 'to', b)
-    # 寻找相似的邻居
-    distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
-    # 将距离转换为相似度
-    similarities = 1 / (1 + distances)
+    print('Finding similar titles...')
+    CTS = len(test) // CHUNK
+    if len(test) % CHUNK != 0: CTS += 1
+    for j in range(CTS):
+        a = j * CHUNK
+        b = min((j + 1) * CHUNK, len(test))
+        print('chunk', a, 'to', b)
+        # 寻找相似的邻居
+        distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
+        # 将距离转换为相似度
+        similarities = 1 / (1 + distances)
 
-    for k in range(b - a):
-        IDX = cp.where(similarities[k,] > threshold)[0]
-        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-        preds.append(o)
+        for k in range(b - a):
+            IDX = cp.where(similarities[k,] > threshold)[0]
+            o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+            preds.append(o)
 
-    del distances, indices
+        del distances, indices
+    text_embeddings = text_embeddings.get()
+    del text_embeddings
+    cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+    _ = gc.collect()
 
-text_embeddings = text_embeddings.get()
-del text_embeddings
-cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-_ = gc.collect()
+    test['preds'] = preds
+    test.head()
+    print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
 
-test['preds'] = preds
-test.head()
 
 
 # tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
 # test['preds3'] = test.image_phash.map(tmp)
 # test.head()
 
-
-def combine_for_sub(row):
-    x = np.concatenate([row.preds, row.preds2])
-    return ' '.join(np.unique(x))
-
-
-def combine_for_cv(row):
-    x = np.concatenate([row.preds, row.preds2])
-    return np.unique(x)
-
-
-# if COMPUTE_CV:
-#     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-#     test['target'] = test.label_group.map(tmp)
-#     test['oof'] = test.apply(combine_for_cv, axis=1)
-#     test['f1'] = test.apply(getMetric('oof'), axis=1)
-#     print('CV Score =', test.f1.mean())
 #
-# test['matches'] = test.apply(combine_for_sub, axis=1)
-
-# print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
-print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+# def combine_for_sub(row):
+#     x = np.concatenate([row.preds, row.preds2])
+#     return ' '.join(np.unique(x))
+#
+#
+# def combine_for_cv(row):
+#     x = np.concatenate([row.preds, row.preds2])
+#     return np.unique(x)
+#
+#
+# # if COMPUTE_CV:
+# #     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+# #     test['target'] = test.label_group.map(tmp)
+# #     test['oof'] = test.apply(combine_for_cv, axis=1)
+# #     test['f1'] = test.apply(getMetric('oof'), axis=1)
+# #     print('CV Score =', test.f1.mean())
+# #
+# # test['matches'] = test.apply(combine_for_sub, axis=1)
+#
+# # print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+# print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
 # print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
 #
 # test
