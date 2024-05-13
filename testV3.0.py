@@ -222,55 +222,55 @@ image_model = load_model(model, WGT)
 # with open('image_embeddings.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(image_embeddings, f)
 
-with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
-    image_embeddings = pickle.load(f)
-
-img_embs=image_embeddings
-
-KNN = 50
-if len(test)==3: KNN = 2
-model = NearestNeighbors(n_neighbors=KNN)
-model.fit(image_embeddings)
-
-
-import pandas as pd
-import cupy as cp
-
-
-# 假设 image_embeddings 是图像的嵌入向量
-image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-threshold = 0.475
-
-print(f"threshold: {threshold}")
-preds = []
-CHUNK = 1024 * 4
-print('Finding similar images...')
-CTS = len(image_embeddings) // CHUNK
-if len(image_embeddings) % CHUNK != 0:
-    CTS += 1
-
-for j in range(CTS):
-    a = j * CHUNK
-    b = min((j + 1) * CHUNK, len(image_embeddings))
-    print('chunk', a, 'to', b)
-    # 寻找相似的邻居
-    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-    # 将距离转换为相似度
-    similarities = 1 / (1 + distances)
-
-    for k in range(b - a):
-        IDX = cp.where(similarities[k,] > threshold)[0]
-        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-        preds.append(o)
-
-    del distances, indices
-test['preds2'] = preds
-test.head()
-
-image_embeddings = image_embeddings.get()
-del image_embeddings
-cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-_ = gc.collect()
+# with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+#     image_embeddings = pickle.load(f)
+#
+# img_embs=image_embeddings
+#
+# KNN = 50
+# if len(test)==3: KNN = 2
+# model = NearestNeighbors(n_neighbors=KNN)
+# model.fit(image_embeddings)
+#
+#
+# import pandas as pd
+# import cupy as cp
+#
+#
+# # 假设 image_embeddings 是图像的嵌入向量
+# image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+# threshold = 0.475
+#
+# print(f"threshold: {threshold}")
+# preds = []
+# CHUNK = 1024 * 4
+# print('Finding similar images...')
+# CTS = len(image_embeddings) // CHUNK
+# if len(image_embeddings) % CHUNK != 0:
+#     CTS += 1
+#
+# for j in range(CTS):
+#     a = j * CHUNK
+#     b = min((j + 1) * CHUNK, len(image_embeddings))
+#     print('chunk', a, 'to', b)
+#     # 寻找相似的邻居
+#     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+#     # 将距离转换为相似度
+#     similarities = 1 / (1 + distances)
+#
+#     for k in range(b - a):
+#         IDX = cp.where(similarities[k,] > threshold)[0]
+#         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+#         preds.append(o)
+#
+#     del distances, indices
+# test['preds2'] = preds
+# test.head()
+#
+# image_embeddings = image_embeddings.get()
+# del image_embeddings
+# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+# _ = gc.collect()
 
 print('Computing text embeddings...')
 
@@ -325,14 +325,11 @@ def to_num(x, mult=1):
     x = x.replace(',','.')
     return int(float(x)*mult)
 
-def extract_unit(tit, m):
-    pat = f'\W(\d+(?:[\,\.]\d+)?) ?{m}s?\W'
-    matches = regex.findall(pat, tit, overlapped=True)
-    return set(matches)
+
 
 import re
 
-def extract_and_replace_with_unit(tit):
+def extract_and_replace_with_standard_unit(tit):
     tit = ' ' + tit.lower() + ' '
     for cat, units in measurements.items():
         for unit_name, mult in units:
@@ -340,15 +337,11 @@ def extract_and_replace_with_unit(tit):
             matches = re.finditer(pat, tit)
             for match in matches:
                 num = to_num(match.group(1), mult)
-                replacement = f"{num} {unit_name}"
-                start, end = match.span()
-                tit = tit[:start] + replacement + tit[end:]
+                tit = re.sub(fr'\b{match.group(1)} ?{unit_name}s?\b', f"{num} {cat}", tit)
     return tit.strip()
 
 
-input_string = "The package weighs 2.5 kg and contains 500 g of sugar"
-result = extract_and_replace_with_unit(input_string)
-print(result)
+
 
 ### Dataset
 
@@ -361,7 +354,7 @@ class TitleDataset(Dataset):
         for title in texts:
             title = title.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
             title = title.lower()
-            title=extract_and_replace_with_unit(title)
+            title=extract_and_replace_with_standard_unit(title)
             self.titles.append(title)
     def __len__(self):
         return len(self.titles)
