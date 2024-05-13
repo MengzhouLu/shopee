@@ -271,17 +271,77 @@ from tqdm import tqdm
 
 print('Computing text embeddings...')
 
+
+class CFG:
+    # data augmentation
+    IMG_SIZE = 512
+    MEAN = [0.485, 0.456, 0.406]
+    STD = [0.229, 0.224, 0.225]
+
+    SEED = 2023
+
+    # data split
+    N_SPLITS = 5
+    TEST_FOLD = 0
+    VALID_FOLD = 1
+
+    EPOCHS = 8
+    BATCH_SIZE = 8
+
+    NUM_WORKERS = 4
+    DEVICE = "cuda:0"
+
+    CLASSES = 11014  # !!!!!!!!!!!!!
+    SCALE = 30
+    MARGIN = 0.6
+
+    SCHEDULER_PARAMS = {
+        "lr_start": 1e-5,
+        "lr_max": 1e-5 * 32,
+        "lr_min": 1e-6,
+        "lr_ramp_ep": 5,
+        "lr_sus_ep": 0,
+        "lr_decay": 0.8,
+    }
+
+    MODEL_NAME = "eca_nfnet_l0"
+    FC_DIM = 512
+    MODEL_PATH = './bert base uncased'
+    FEAT_PATH = f"../input/shopee-embeddings/{MODEL_NAME}_arcface.npy"
+### Dataset
+class TitleDataset(torch.utils.data.Dataset):
+    def __init__(self, df, text_column, label_column):
+        texts = df[text_column]
+        self.labels = df[label_column].values
+
+        self.titles = []
+        for title in texts:
+
+            title = title.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
+            title = title.lower()
+            self.titles.append(title)
+
+    def __len__(self):
+        return len(self.titles)
+
+    def __getitem__(self, idx):
+        text = self.titles[idx]
+        label = torch.tensor(self.labels[idx])
+        return text, label
+
+title_loader = DataLoader(TitleDataset, batch_size=16, num_workers=4)
+
 model_name = './bert base uncased'
 tokenizer = BertTokenizer.from_pretrained(model_name)
-model = BertModel.from_pretrained(model_name)
-# model = BertModel.from_pretrained(model_name).cuda()
+# model = BertModel.from_pretrained(model_name)
+model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
 
 embeddings = []
-for text in tqdm(text_data[:1000]):
-
+for text in tqdm(title_loader):
+    text.cuda()
     tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
     outputs = model(**tokens)
     embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
