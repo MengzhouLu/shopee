@@ -361,7 +361,7 @@ class TitleDataset(Dataset):
         for title in texts:
             title = title.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
             title = title.lower()
-            title=extract_and_replace(title)
+            title=extract_and_replace_with_unit(title)
             self.titles.append(title)
     def __len__(self):
         return len(self.titles)
