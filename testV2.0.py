@@ -351,7 +351,7 @@ with open('title_embeddings.pkl', 'wb') as f:    #Pickling
     pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
-    embeddings = pickle.load(f)
+    text_embeddings = pickle.load(f)
 
 del model
 _ = gc.collect()
