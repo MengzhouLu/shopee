@@ -337,24 +337,25 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 
-# embeddings = []
-# model.eval()
-# with torch.no_grad():
-#     for title, _ in tqdm(title_loader):
-#         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
-#         outputs = model(**tokens)
-#         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
-#         embeddings.append(sentence_embeddings.cpu().numpy())
-#
-# with open('title_embeddings.pkl', 'wb') as f:    #Pickling
-#     pickle.dump(embeddings, f)
+embeddings = []
+model.eval()
+with torch.no_grad():
+    for title, _ in tqdm(title_loader):
+        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
+        outputs = model(**tokens)
+        sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
+        embeddings.append(sentence_embeddings.cpu().numpy())
+embeddings=F.normalize(torch.cat(embeddings, dim=0)).numpy()
+print(embeddings.shape)
+with open('title_embeddings.pkl', 'wb') as f:    #Pickling
+    pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     embeddings = pickle.load(f)
 
 del model
 _ = gc.collect()
-text_embeddings = np.concatenate(embeddings, axis=0)
+# text_embeddings = np.concatenate(embeddings, axis=0)
 # text_embeddings = text_embeddings.reshape(test.shape[0], -1)
 print(text_embeddings.shape)
 
@@ -380,7 +381,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
-for threshold in [0.26,0.27,0.28,0.29,0.3,0.31,0.32,0.33,0.34,0.35,0.36,0.37,0.38,0.39,0.4]:
+for threshold in [0.26,0.27,0.28,0.29,0.3]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4*4
