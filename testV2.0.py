@@ -341,7 +341,7 @@ embeddings = []
 model.eval()
 with torch.no_grad():
     for title, _ in tqdm(title_loader):
-        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
+        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=100, return_tensors="pt").to('cuda')
         outputs = model(**tokens)
         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
         # embeddings.append(sentence_embeddings.cpu().numpy())
@@ -384,7 +384,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
-for threshold in [0.75,0.77,0.8,0.81,0.83,0.85]:
+for threshold in [0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4*4
