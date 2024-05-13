@@ -338,23 +338,23 @@ model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 
 embeddings = []
-model.eval()
-with torch.no_grad():
-    for title, _ in tqdm(title_loader):
-        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
-        outputs = model(**tokens)
-        embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
-
-with open('title_embeddings.pkl', 'wb') as f:    #Pickling
-    pickle.dump(embeddings, f)
+# model.eval()
+# with torch.no_grad():
+#     for title, _ in tqdm(title_loader):
+#         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
+#         outputs = model(**tokens)
+#         embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
+#
+# with open('title_embeddings.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     text_embeddings = pickle.load(f)
 
 del model
 _ = gc.collect()
-text_embeddings = np.concatenate(embeddings,axis=0)
-text_embeddings.view(test.shape[0], -1)
+text_embeddings = np.concatenate(embeddings, axis=0)
+text_embeddings = text_embeddings.reshape(test.shape[0], -1)
 print(text_embeddings.shape)
 
 # model = TfidfVectorizer(stop_words=None,
