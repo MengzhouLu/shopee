@@ -334,7 +334,10 @@ title_loader = DataLoader(title_dataset, batch_size=128, num_workers=4)
 model_name = './bertmodel'
 tokenizer = BertTokenizer.from_pretrained(model_name)
 # model = BertModel.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name).cuda()
+model = AutoModel.from_pretrained(model_name)
+state = torch.load('./bertmodel/bert_indo_val0.pth')
+model.load_state_dict(state)
+model.cuda()
 # 准备输入数据
 
 embeddings = []
