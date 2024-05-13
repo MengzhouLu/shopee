@@ -345,6 +345,7 @@ with torch.no_grad():
         outputs = model(**tokens)
         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
         embeddings.append(sentence_embeddings.cpu().numpy())
+embeddings = torch.tensor(embeddings)
 embeddings=F.normalize(torch.cat(embeddings, dim=0)).numpy()
 print(embeddings.shape)
 with open('title_embeddings.pkl', 'wb') as f:    #Pickling
