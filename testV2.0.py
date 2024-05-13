@@ -380,7 +380,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
-for threshold in [0.3,0.4, 0.48, 0.505, 0.585, 0.595, 0.605, 0.615, 0.625, 0.635, 0.645, 0.655, 0.665, 0.675, 0.685, 0.695, 0.705, 0.715, 0.725, 0.735, 0.745]:
+for threshold in [0.1,0.2,0.25,0.3,0.4,]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4*4
