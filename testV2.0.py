@@ -341,7 +341,8 @@ embeddings = []
 model.eval()
 with torch.no_grad():
     for title, _ in tqdm(title_loader):
-        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").cuda()
+        print(title)
+        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
         outputs = model(**tokens)
         embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
 
