@@ -336,7 +336,7 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 # model = BertModel.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
 state = torch.load('./bertmodel/bert_indo_val0.pth')
-model.load_state_dict(state)
+model.load_state_dict(state,strict=False)
 model.cuda()
 # 准备输入数据
 
