@@ -330,17 +330,25 @@ def extract_unit(tit, m):
     matches = regex.findall(pat, tit, overlapped=True)
     return set(matches)
 
-def extract_and_replace(tit):
+import re
+
+def extract_and_replace_with_unit(tit):
     tit = ' ' + tit.lower() + ' '
     for cat, units in measurements.items():
         for unit_name, mult in units:
-            pat = f'\W(\d+(?:[\,\.]\d+)?) ?{unit_name}s?\W'
-            matches = regex.findall(pat, tit, overlapped=True)
+            pat = fr'\b(\d+(?:[\,\.]\d+)?) ?{unit_name}s?\b'
+            matches = re.finditer(pat, tit)
             for match in matches:
-                num = to_num(match, mult)
-                replacement = f"{num} {cat}"
-                tit = tit.replace(match, str(replacement))
+                num = to_num(match.group(1), mult)
+                replacement = f"{num} {unit_name}"
+                start, end = match.span()
+                tit = tit[:start] + replacement + tit[end:]
     return tit.strip()
+
+
+input_string = "The package weighs 2.5 kg and contains 500 g of sugar"
+result = extract_and_replace_with_unit(input_string)
+print(result)
 
 ### Dataset
 
