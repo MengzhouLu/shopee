@@ -340,21 +340,21 @@ model.load_state_dict(state,strict=False)
 model.cuda()
 # 准备输入数据
 
-embeddings = []
-model.eval()
-with torch.no_grad():
-    for title, _ in tqdm(title_loader):
-        tokens = tokenizer(title, padding='max_length', truncation=True, max_length=100, return_tensors="pt").to('cuda')
-        outputs = model(**tokens)
-        sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
-        # embeddings.append(sentence_embeddings.cpu().numpy())
-        embeddings.append(sentence_embeddings.detach().cpu())
-
-
-embeddings=F.normalize(torch.cat(embeddings, dim=0),dim=1).numpy()
-print(embeddings.shape)
-with open('title_embeddings.pkl', 'wb') as f:    #Pickling
-    pickle.dump(embeddings, f)
+# embeddings = []
+# model.eval()
+# with torch.no_grad():
+#     for title, _ in tqdm(title_loader):
+#         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=100, return_tensors="pt").to('cuda')
+#         outputs = model(**tokens)
+#         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
+#         # embeddings.append(sentence_embeddings.cpu().numpy())
+#         embeddings.append(sentence_embeddings.detach().cpu())
+#
+#
+# embeddings=F.normalize(torch.cat(embeddings, dim=0),dim=1).numpy()
+# print(embeddings.shape)
+# with open('title_embeddings.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(embeddings, f)
 
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     text_embeddings = pickle.load(f)
@@ -387,7 +387,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
-for threshold in [0.5,0.55,0.6,0.65,0.7,0.72,0.74]:
+for threshold in [0.57,0.58,0.59,0.6,0.61,0.62,0.63,0.64]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4*4
