@@ -331,8 +331,8 @@ title_dataset = TitleDataset(test, 'title', 'label_group')
 title_loader = DataLoader(title_dataset, batch_size=128, num_workers=4)
 
 
-model_name = './bert_indo_val0.pth'
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+model_name = './bertmodel'
+tokenizer = BertTokenizer.from_pretrained(model_name)
 # model = BertModel.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name).cuda()
 # 准备输入数据
