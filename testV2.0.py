@@ -327,7 +327,7 @@ class TitleDataset(Dataset):
         label = torch.tensor(self.labels[idx])
         return text, label
 
-title_dataset = TitleDataset(test, 'title', 'label_group', tokenizer)
+title_dataset = TitleDataset(test, 'title', 'label_group')
 title_loader = DataLoader(title_dataset, batch_size=16, num_workers=4)
 
 
