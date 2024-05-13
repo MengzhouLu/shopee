@@ -383,7 +383,7 @@ test['target'] = test.label_group.map(tmp)
 for threshold in [0.3,0.4, 0.48, 0.505, 0.585, 0.595, 0.605, 0.615, 0.625, 0.635, 0.645, 0.655, 0.665, 0.675, 0.685, 0.695, 0.705, 0.715, 0.725, 0.735, 0.745]:
     print(f"threshold: {threshold}")
     preds = []
-    CHUNK = 1024 * 4
+    CHUNK = 1024 * 4*4
 
     print('Finding similar titles...')
     CTS = len(test) // CHUNK
@@ -403,10 +403,10 @@ for threshold in [0.3,0.4, 0.48, 0.505, 0.585, 0.595, 0.605, 0.615, 0.625, 0.635
             preds.append(o)
 
         del distances, indices
-    text_embeddings = text_embeddings.get()
-    del text_embeddings
-    cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-    _ = gc.collect()
+    # text_embeddings = text_embeddings.get()
+    # del text_embeddings
+    # cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+    # _ = gc.collect()
 
     test['preds'] = preds
     test.head()
