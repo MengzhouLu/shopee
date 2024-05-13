@@ -312,8 +312,11 @@ class CFG:
 df=test
 text_column = 'title'
 label_column = 'label_group'
-class TitleDataset(torch.utils.data.Dataset):
+class TitleDataset(Dataset):
     def __init__(self, df, text_column, label_column):
+        self.df = test
+        self.text_column = 'title'
+        self.label_column = 'label_group'
         texts = df[text_column]
         self.labels = df[label_column].values
 
