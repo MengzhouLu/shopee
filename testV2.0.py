@@ -309,48 +309,43 @@ class CFG:
     MODEL_PATH = './bert base uncased'
     FEAT_PATH = f"../input/shopee-embeddings/{MODEL_NAME}_arcface.npy"
 ### Dataset
-df=test
-text_column = 'title'
-label_column = 'label_group'
+
 class TitleDataset(Dataset):
     def __init__(self, df, text_column, label_column):
-        self.df = test
-        self.text_column = 'title'
-        self.label_column = 'label_group'
         texts = df[text_column]
         self.labels = df[label_column].values
 
         self.titles = []
         for title in texts:
-
             title = title.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
             title = title.lower()
             self.titles.append(title)
-
     def __len__(self):
         return len(self.titles)
-
     def __getitem__(self, idx):
         text = self.titles[idx]
         label = torch.tensor(self.labels[idx])
         return text, label
 
-title_loader = DataLoader(TitleDataset, batch_size=16, num_workers=4)
+title_dataset = TitleDataset(test, 'title', 'label_group', tokenizer)
+title_loader = DataLoader(title_dataset, batch_size=16, num_workers=4)
+
 
 model_name = './bert base uncased'
 tokenizer = BertTokenizer.from_pretrained(model_name)
 # model = BertModel.from_pretrained(model_name)
 model = BertModel.from_pretrained(model_name).cuda()
 # 准备输入数据
-text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
-print(text_data[:5])
 
 embeddings = []
-for text in tqdm(title_loader):
-    text.cuda()
-    tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
-    outputs = model(**tokens)
-    embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
+model.eval()
+with torch.no_grad():
+    for text, _ in tqdm(title_loader):
+        text.cuda()
+        tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
+        outputs = model(**tokens)
+        embeddings.append(outputs.last_hidden_state.detach().cpu().numpy())
+
 
 del model
 _ = gc.collect()
