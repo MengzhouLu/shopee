@@ -348,7 +348,7 @@ with torch.no_grad():
         embeddings.append(sentence_embeddings.detach().cpu())
 
 
-embeddings=F.normalize(embeddings, dim=1).numpy()
+embeddings=F.normalize(torch.cat(embeddings, dim=1)).numpy()
 print(embeddings.shape)
 with open('title_embeddings.pkl', 'wb') as f:    #Pickling
     pickle.dump(embeddings, f)
@@ -384,7 +384,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
-for threshold in [0.26,0.27,0.28,0.29,0.3]:
+for threshold in [0.4,0.5,0.6,0.7,0.8,0.9]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4*4
