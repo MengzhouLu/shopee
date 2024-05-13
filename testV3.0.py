@@ -488,7 +488,8 @@ def embs_from_model(model, dl):
         if len(batch) ==2:
             bx,by=batch
         else:
-            bx,=batch
+            # bx,=batch
+            bx=batch
             by=torch.zeros(1)
         with torch.no_grad():
             embs = model(bx)
