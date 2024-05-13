@@ -340,7 +340,7 @@ text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
 
 embeddings = []
-for text in tqdm(title_loader):
+for text in title_loader:
     text.cuda()
     tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
     outputs = model(**tokens)
