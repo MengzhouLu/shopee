@@ -332,9 +332,9 @@ title_loader = DataLoader(title_dataset, batch_size=128, num_workers=4)
 
 
 model_name = './bert_indo_val0.pth'
-tokenizer = BertTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 # model = BertModel.from_pretrained(model_name)
-model = BertModel.from_pretrained(model_name).cuda()
+model = AutoModel.from_pretrained(model_name).cuda()
 # 准备输入数据
 
 embeddings = []
