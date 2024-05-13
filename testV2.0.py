@@ -344,8 +344,10 @@ with torch.no_grad():
         tokens = tokenizer(title, padding='max_length', truncation=True, max_length=16, return_tensors="pt").to('cuda')
         outputs = model(**tokens)
         sentence_embeddings = outputs.last_hidden_state[:, 0, :]  # 获取[CLS]标记所对应的输出
-        embeddings.append(sentence_embeddings.cpu().numpy())
-embeddings = torch.tensor(embeddings)
+        # embeddings.append(sentence_embeddings.cpu().numpy())
+        embeddings.append(sentence_embeddings)
+
+print(embeddings.shape)
 embeddings=F.normalize(torch.cat(embeddings, dim=0)).numpy()
 print(embeddings.shape)
 with open('title_embeddings.pkl', 'wb') as f:    #Pickling
