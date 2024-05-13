@@ -309,6 +309,9 @@ class CFG:
     MODEL_PATH = './bert base uncased'
     FEAT_PATH = f"../input/shopee-embeddings/{MODEL_NAME}_arcface.npy"
 ### Dataset
+df=test
+text_column = 'title'
+label_column = 'label_group'
 class TitleDataset(torch.utils.data.Dataset):
     def __init__(self, df, text_column, label_column):
         texts = df[text_column]
@@ -340,7 +343,7 @@ text_data = test.title.values.tolist()  # 假设test.title是你的文本数据
 print(text_data[:5])
 
 embeddings = []
-for text in title_loader:
+for text in tqdm(title_loader):
     text.cuda()
     tokens = tokenizer(text, padding='max_length', truncation=True, max_length=16, return_tensors="pt")
     outputs = model(**tokens)
