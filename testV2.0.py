@@ -348,7 +348,7 @@ with torch.no_grad():
         embeddings.append(sentence_embeddings.detach().cpu())
 
 
-embeddings=F.normalize(torch.cat(embeddings, dim=1)).numpy()
+embeddings=F.normalize(torch.cat(embeddings, dim=0),dim=1).numpy()
 print(embeddings.shape)
 with open('title_embeddings.pkl', 'wb') as f:    #Pickling
     pickle.dump(embeddings, f)
