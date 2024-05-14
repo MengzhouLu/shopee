@@ -483,6 +483,7 @@ def get_nearest(embs, emb_chunks, K=None, sorted=True):
 
         sim = embs @ chunk.T
         sim=torch.from_numpy(sim)
+        sim= np.asarray(sim)  # 确保 sim 是一个 NumPy 数组
 
         top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
         distances.append(top_vals.T)
