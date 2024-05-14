@@ -501,6 +501,7 @@ def combined_distances(embs_list):
         inds = combined_inds[x].unique()
         Ds = [embs[None,x] @ embs[inds].T for embs in embs_list]
         D = Ds[0] + Ds[1] - Ds[0] * Ds[1]
+        D=np.asarray(D)
         D=torch.from_numpy(D)
         top_dists, top_inds = D.topk(K)
         res_inds.append(inds[top_inds])
