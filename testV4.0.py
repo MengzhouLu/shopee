@@ -508,7 +508,7 @@ def combined_distances(embs_list):
 def blend_embs(embs_list, threshold, m2_threshold, data_df):
     combined_inds, combined_dists = combined_distances(embs_list)
     # check_measurements(combined_dists, combined_inds, data_df)
-    new_embs_list = list((torch.empty_like(embs) for embs in embs_list))
+    new_embs_list = list((torch.empty_like(torch.from_numpy(embs)) for embs in embs_list))
     for x in range(len(embs_list[0])):
         neighs = combined_dists[x] > threshold
         if neighs.sum() == 1 and combined_dists[x][1]>m2_threshold:
