@@ -252,52 +252,52 @@ with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
 
 img_embs=image_embeddings
 
-# KNN = 50
-# if len(test)==3: KNN = 2
-# model = NearestNeighbors(n_neighbors=KNN)
-# model.fit(image_embeddings)
-#
-#
-# import pandas as pd
-# import cupy as cp
-#
-#
-# # 假设 image_embeddings 是图像的嵌入向量
-# image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-# threshold = 0.475
-#
-# print(f"threshold: {threshold}")
-# preds = []
-# CHUNK = 1024 * 4
-# print('Finding similar images...')
-# CTS = len(image_embeddings) // CHUNK
-# if len(image_embeddings) % CHUNK != 0:
-#     CTS += 1
-#
-# for j in range(CTS):
-#     a = j * CHUNK
-#     b = min((j + 1) * CHUNK, len(image_embeddings))
-#     print('chunk', a, 'to', b)
-#     # 寻找相似的邻居
-#     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-#     # 将距离转换为相似度
-#     similarities = 1 / (1 + distances)
-#
-#     for k in range(b - a):
-#         IDX = cp.where(similarities[k,] > threshold)[0]
-#         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-#         preds.append(o)
-#
-#     del distances, indices
-# test['preds2'] = preds
-# test.head()
-#
-# image_embeddings = image_embeddings.get()
-# del image_embeddings
-# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-# _ = gc.collect()
-#
-# print('Computing text embeddings...')
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(image_embeddings)
+
+
+import pandas as pd
+import cupy as cp
+
+
+# 假设 image_embeddings 是图像的嵌入向量
+image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+threshold = 0.475
+
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4
+print('Finding similar images...')
+CTS = len(image_embeddings) // CHUNK
+if len(image_embeddings) % CHUNK != 0:
+    CTS += 1
+
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(image_embeddings))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
+
+    del distances, indices
+test['preds2'] = preds
+test.head()
+
+image_embeddings = image_embeddings.get()
+del image_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
+
+print('Computing text embeddings...')
 
 
 
@@ -365,8 +365,10 @@ with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
 # text_embeddings = np.concatenate(embeddings, axis=0)
 # text_embeddings = text_embeddings.reshape(test.shape[0], -1)
 print(text_embeddings.shape)
-
 bert_embs=text_embeddings
+
+
+
 # model = TfidfVectorizer(stop_words=None,
 #                         binary=True,
 #                         max_features=25000)
@@ -380,54 +382,57 @@ bert_embs=text_embeddings
 # with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
 #     text_embeddings = pickle.load(f)
 
-# KNN = 50
-# if len(test)==3: KNN = 2
-# model = NearestNeighbors(n_neighbors=KNN)
-# model.fit(text_embeddings)
-#
-# text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-#
-# tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-# test['target'] = test.label_group.map(tmp)
-# threshold=0.58
-# print(f"threshold: {threshold}")
-# preds = []
-# CHUNK = 1024 * 4*4
-#
-# print('Finding similar titles...')
-# CTS = len(test) // CHUNK
-# if len(test) % CHUNK != 0: CTS += 1
-# for j in range(CTS):
-#     a = j * CHUNK
-#     b = min((j + 1) * CHUNK, len(test))
-#     print('chunk', a, 'to', b)
-#     # 寻找相似的邻居
-#     distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
-#     # 将距离转换为相似度
-#     similarities = 1 / (1 + distances)
-#
-#     for k in range(b - a):
-#         IDX = cp.where(similarities[k,] > threshold)[0]
-#         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-#         preds.append(o)
-#
-#     del distances, indices
-# text_embeddings = text_embeddings.get()
-# del text_embeddings
-# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-# _ = gc.collect()
-#
-# test['preds'] = preds
-# test.head()
+
+
+
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(text_embeddings)
+
+text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+
+tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+test['target'] = test.label_group.map(tmp)
+threshold=0.58
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4*4
+
+print('Finding similar titles...')
+CTS = len(test) // CHUNK
+if len(test) % CHUNK != 0: CTS += 1
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(test))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
+
+    del distances, indices
+text_embeddings = text_embeddings.get()
+del text_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
+
+test['preds'] = preds
+test.head()
 
 
 
 
-# tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
-# test['preds3'] = test.image_phash.map(tmp)
-# test.head()
-#
-#
+tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
+test['preds3'] = test.image_phash.map(tmp)
+test.head()
+
+
 def combine_for_sub(row):
     x = np.concatenate([row.preds, row.preds2])
     return ' '.join(np.unique(x))
@@ -436,26 +441,26 @@ def combine_for_sub(row):
 def combine_for_cv(row):
     x = np.concatenate([row.preds, row.preds2])
     return np.unique(x)
-#
-#
-# if COMPUTE_CV:
-#     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-#     test['target'] = test.label_group.map(tmp)
-#     test['oof'] = test.apply(combine_for_cv, axis=1)
-#     test['f1'] = test.apply(getMetric('oof'), axis=1)
-#     print('CV Score =', test.f1.mean())
-#
-# test['matches'] = test.apply(combine_for_sub, axis=1)
-#
-# print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
-# print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
-# print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
-#
-# test
-#
-# test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
-# sub = pd.read_csv('submission.csv')
-# sub.head()
+
+
+if COMPUTE_CV:
+    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+    test['target'] = test.label_group.map(tmp)
+    test['oof'] = test.apply(combine_for_cv, axis=1)
+    test['f1'] = test.apply(getMetric('oof'), axis=1)
+    print('CV Score =', test.f1.mean())
+
+test['matches'] = test.apply(combine_for_sub, axis=1)
+
+print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+
+test
+
+test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
+sub = pd.read_csv('submission.csv')
+sub.head()
 
 
 def sorted_pairs(distances, indices):
@@ -569,12 +574,12 @@ groups_p = [[] for _ in range(set_size)]
 for x,y,v in pairs:
     groups[x].append(y)
     groups_p[x].append(v)
-for pos, size_pct in get_targets_shape(train_df):
+for pos, size_pct in get_targets_shape(test):
     chisel(groups, groups_p, pos, int(size_pct * len(groups)))
 matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]
 
-train['matches'] = matches
-print("CV for text  :", round(train.apply(getMetric('matches'), axis=1).mean(), 3))
+test['matches'] = matches
+print("CV for text  :", round(test.apply(getMetric('matches'), axis=1).mean(), 3))
 
-train[['posting_id','matches']].to_csv('submission.csv',index=False)
+test[['posting_id','matches']].to_csv('submission.csv',index=False)
 pd.read_csv('submission.csv').head()
