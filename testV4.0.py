@@ -480,8 +480,9 @@ def get_nearest(embs, emb_chunks, K=None, sorted=True):
     distances = []
     indices = []
     for chunk in emb_chunks:
-        chunk = torch.from_numpy(chunk)
+
         sim = embs @ chunk.T
+        print(type(sim))
         top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
         distances.append(top_vals.T)
         indices.append(top_inds.T)
@@ -489,7 +490,7 @@ def get_nearest(embs, emb_chunks, K=None, sorted=True):
 
 def combined_distances(embs_list):
     K = min(len(embs_list[0]), 51)
-    embs_list = [torch.from_numpy(embs) for embs in embs_list]
+    # embs_list = [torch.from_numpy(embs) for embs in embs_list]
     combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]
     combined_inds = torch.cat(combined_inds, dim=1)
     res_inds,res_dists = [],[]
