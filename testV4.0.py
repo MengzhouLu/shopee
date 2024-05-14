@@ -576,9 +576,11 @@ for x,y,v in pairs:
     groups_p[x].append(v)
 for pos, size_pct in get_targets_shape(test):
     chisel(groups, groups_p, pos, int(size_pct * len(groups)))
-matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]
+# matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]
+matches = [np.unique(test_df.iloc[g].posting_id.to_list()) for g in groups]
 
 test['matches1'] = matches
+
 print("CV for text  :", round(test.apply(getMetric('matches1'), axis=1).mean(), 3))
 
 test[['posting_id','matches','matches1']].to_csv('submission.csv',index=False)
