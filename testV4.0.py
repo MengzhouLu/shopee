@@ -360,8 +360,8 @@ img_embs=image_embeddings
 with open('title_embeddings.pkl', 'rb') as f:    # Unpickling
     text_embeddings = pickle.load(f)
 
-del model
-_ = gc.collect()
+# del model
+# _ = gc.collect()
 # text_embeddings = np.concatenate(embeddings, axis=0)
 # text_embeddings = text_embeddings.reshape(test.shape[0], -1)
 print(text_embeddings.shape)
