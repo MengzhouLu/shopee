@@ -517,7 +517,11 @@ def blend_embs(embs_list, threshold, m2_threshold, data_df):
         for embs, new_embs in zip(embs_list, new_embs_list):
             embs = torch.from_numpy(embs)
             new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
-    return new_embs_list.map(F.normalize)
+    # return new_embs_list.map(F.normalize)
+    new_embs_list_normalized = [torch.nn.functional.normalize(emb, dim=0) for emb in
+                                new_embs_list]  # 对每个张量应用F.normalize函数
+
+    return new_embs_list_normalized
 def add_target_groups(data_df, source_column='label_group', target_column='target'):
     target_groups = data_df.groupby(source_column).indices
     data_df[target_column]=data_df[source_column].map(target_groups)
