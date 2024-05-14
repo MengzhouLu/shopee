@@ -572,8 +572,9 @@ for x,y,v in pairs:
 for pos, size_pct in get_targets_shape(train_df):
     chisel(groups, groups_p, pos, int(size_pct * len(groups)))
 matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]
-test['matches'] = matches
-print("CV for text  :", round(test.apply(getMetric('matches'), axis=1).mean(), 3))
 
-test[['posting_id','matches']].to_csv('submission.csv',index=False)
+train['matches'] = matches
+print("CV for text  :", round(train.apply(getMetric('matches'), axis=1).mean(), 3))
+
+train[['posting_id','matches']].to_csv('submission.csv',index=False)
 pd.read_csv('submission.csv').head()
