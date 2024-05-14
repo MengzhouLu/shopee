@@ -474,7 +474,7 @@ def do_chunk(embs):
         chunk_end = min(chunk_start+step, len(embs))
         yield embs[chunk_start:chunk_end]
 def get_nearest(embs, emb_chunks, K=None, sorted=True):
-    embs = torch.from_numpy(embs)
+
     if K is None:
         K = min(51, len(embs))
     distances = []
