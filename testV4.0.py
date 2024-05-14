@@ -423,11 +423,11 @@ bert_embs=text_embeddings
 
 
 
-tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
-test['preds3'] = test.image_phash.map(tmp)
-test.head()
-
-
+# tmp = test.groupby('image_phash').posting_id.agg('unique').to_dict()
+# test['preds3'] = test.image_phash.map(tmp)
+# test.head()
+#
+#
 def combine_for_sub(row):
     x = np.concatenate([row.preds, row.preds2])
     return ' '.join(np.unique(x))
@@ -436,26 +436,26 @@ def combine_for_sub(row):
 def combine_for_cv(row):
     x = np.concatenate([row.preds, row.preds2])
     return np.unique(x)
-
-
-if COMPUTE_CV:
-    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-    test['target'] = test.label_group.map(tmp)
-    test['oof'] = test.apply(combine_for_cv, axis=1)
-    test['f1'] = test.apply(getMetric('oof'), axis=1)
-    print('CV Score =', test.f1.mean())
-
-test['matches'] = test.apply(combine_for_sub, axis=1)
-
-print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
-print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
-print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
-
-test
-
-test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
-sub = pd.read_csv('submission.csv')
-sub.head()
+#
+#
+# if COMPUTE_CV:
+#     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+#     test['target'] = test.label_group.map(tmp)
+#     test['oof'] = test.apply(combine_for_cv, axis=1)
+#     test['f1'] = test.apply(getMetric('oof'), axis=1)
+#     print('CV Score =', test.f1.mean())
+#
+# test['matches'] = test.apply(combine_for_sub, axis=1)
+#
+# print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+# print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+# print("CV for phash :", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+#
+# test
+#
+# test[['posting_id', 'matches']].to_csv('submission.csv', index=False)
+# sub = pd.read_csv('submission.csv')
+# sub.head()
 
 
 def sorted_pairs(distances, indices):
@@ -502,7 +502,7 @@ def combined_distances(embs_list):
 def blend_embs(embs_list, threshold, m2_threshold, data_df):
     combined_inds, combined_dists = combined_distances(embs_list)
     # check_measurements(combined_dists, combined_inds, data_df)
-    new_embs_list = L((torch.empty_like(embs) for embs in embs_list))
+    new_embs_list = list((torch.empty_like(embs) for embs in embs_list))
     for x in range(len(embs_list[0])):
         neighs = combined_dists[x] > threshold
         if neighs.sum() == 1 and combined_dists[x][1]>m2_threshold:
@@ -511,7 +511,10 @@ def blend_embs(embs_list, threshold, m2_threshold, data_df):
         for embs, new_embs in zip(embs_list, new_embs_list):
             new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
     return new_embs_list.map(F.normalize)
-
+def add_target_groups(data_df, source_column='label_group', target_column='target'):
+    target_groups = data_df.groupby(source_column).indices
+    data_df[target_column]=data_df[source_column].map(target_groups)
+    return data_df
 def get_targets_shape(train_df):
     all_targets = add_target_groups(train_df).target.to_list()
     all_targets_lens = [len(t) for t in all_targets]
@@ -540,7 +543,7 @@ def chisel(groups, groups_p, pos, target_count):
 
 RECIPROCAL_THRESHOLD=.97
 MIN_PAIR_THRESHOLD=.6
-new_embs = blend_embs([img_embs, bert_embs], RECIPROCAL_THRESHOLD, MIN_PAIR_THRESHOLD, valid_df)
+new_embs = blend_embs([img_embs, bert_embs], RECIPROCAL_THRESHOLD, MIN_PAIR_THRESHOLD, test)
 combined_inds, combined_dists = combined_distances(new_embs)
 pairs = sorted_pairs(combined_dists, combined_inds)
 set_size = len(img_embs)
