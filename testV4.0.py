@@ -567,7 +567,7 @@ combined_inds, combined_dists = combined_distances(new_embs)
 pairs = sorted_pairs(combined_dists, combined_inds)
 set_size = len(img_embs)
 
-train_df = test_df=test
+
 
 groups = [[] for _ in range(set_size)]
 groups_p = [[] for _ in range(set_size)]
@@ -576,8 +576,8 @@ for x,y,v in pairs:
     groups_p[x].append(v)
 for pos, size_pct in get_targets_shape(test):
     chisel(groups, groups_p, pos, int(size_pct * len(groups)))
-# matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]
-matches = [np.unique(test_df.iloc[g].posting_id.to_list()) for g in groups]
+# matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]#最终输出（字符串）
+matches = [np.unique(test.iloc[g].posting_id.to_list()) for g in groups]#最终输出（数组）
 
 test['matches1'] = matches
 
