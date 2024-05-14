@@ -472,7 +472,8 @@ def sorted_pairs(distances, indices):
             if not ind in used:
                 triplets.append((x, ind, dist))
                 used.add(ind)
-    return sorted(triplets, key=lambda x: -x[2])
+    # return sorted(triplets, key=lambda x: -x[2])
+    return triplets
 def do_chunk(embs):
     step = 1000
     for chunk_start in range(0, embs.shape[0], step):
