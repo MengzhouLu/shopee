@@ -36,6 +36,29 @@ train.head()
 
 tmp = train.groupby('image_phash').posting_id.agg('unique').to_dict()
 train['oof'] = train.image_phash.map(tmp)
+measurements = {
+    'weight': [('mg',1), ('g', 1000), ('gr', 1000), ('gram', 1000), ('kg', 1000000)],
+    'length': [('mm',1), ('cm', 10), ('m',1000), ('meter', 1000)],
+    'pieces': [ ('pc',1)],
+    'memory': [('gb', 1)],
+    'volume': [('ml', 1), ('l', 1000), ('liter',1000)]
+}
+
+def to_num(x, mult=1):
+    x = x.replace(',','.')
+    return int(float(x)*mult)
+
+
+
+import re
+
+def extract_and_replace_with_standard_unit(tit):
+    for cat, units in measurements.items():
+        min_unit = units[0][0]  # 获取最小单位
+        for unit_name, mult in units:
+            pat = fr'\b(\d+(?:[\,\.]\d+)?) ?{unit_name}s?\b'
+            tit = re.sub(pat, lambda x: f"{to_num(x.group(1), mult)} {min_unit}", tit)
+    return tit.strip()
 
 def getMetric(col):
     def f1score(row):
@@ -83,6 +106,7 @@ class LandmarkDataset(Dataset):
         row = self.csv.iloc[index]
 
         text = row.title
+        text = extract_and_replace_with_standard_unit(text)
 
         image = cv2.imread(row.filepath)
         image = image[:, :, ::-1]
@@ -204,139 +228,77 @@ WGT = './b0ns_256_bert_20ep_fold0_epoch27.pth'
 
 model = enet_arcface_FINAL('tf_efficientnet_b0_ns', out_dim=11014).cuda()
 image_model = load_model(model, WGT)
-#
-# embeds = []
-#
-# with torch.no_grad():
-#     for img, input_ids, attention_mask in tqdm(test_loader):
-#         img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
-#         feat, _ = image_model(img, input_ids, attention_mask)
-#         image_embeddings = feat.detach().cpu().numpy()
-#         embeds.append(image_embeddings)
-#
-# del model
-# _ = gc.collect()
-# image_embeddings = np.concatenate(embeds)
+
+embeds = []
+
+with torch.no_grad():
+    for img, input_ids, attention_mask in tqdm(test_loader):
+        img, input_ids, attention_mask = img.cuda(), input_ids.cuda(), attention_mask.cuda()
+        feat, _ = image_model(img, input_ids, attention_mask)
+        image_embeddings = feat.detach().cpu().numpy()
+        embeds.append(image_embeddings)
+
+del model
+_ = gc.collect()
+image_embeddings = np.concatenate(embeds)
 
 
-# with open('image_embeddings.pkl', 'wb') as f:    #Pickling
-#     pickle.dump(image_embeddings, f)
+with open('image_embeddings.pkl', 'wb') as f:    #Pickling
+    pickle.dump(image_embeddings, f)
 
-# with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
-#     image_embeddings = pickle.load(f)
-#
-# img_embs=image_embeddings
-#
-# KNN = 50
-# if len(test)==3: KNN = 2
-# model = NearestNeighbors(n_neighbors=KNN)
-# model.fit(image_embeddings)
-#
-#
-# import pandas as pd
-# import cupy as cp
-#
-#
-# # 假设 image_embeddings 是图像的嵌入向量
-# image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-# threshold = 0.475
-#
-# print(f"threshold: {threshold}")
-# preds = []
-# CHUNK = 1024 * 4
-# print('Finding similar images...')
-# CTS = len(image_embeddings) // CHUNK
-# if len(image_embeddings) % CHUNK != 0:
-#     CTS += 1
-#
-# for j in range(CTS):
-#     a = j * CHUNK
-#     b = min((j + 1) * CHUNK, len(image_embeddings))
-#     print('chunk', a, 'to', b)
-#     # 寻找相似的邻居
-#     distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-#     # 将距离转换为相似度
-#     similarities = 1 / (1 + distances)
-#
-#     for k in range(b - a):
-#         IDX = cp.where(similarities[k,] > threshold)[0]
-#         o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-#         preds.append(o)
-#
-#     del distances, indices
-# test['preds2'] = preds
-# test.head()
-#
-# image_embeddings = image_embeddings.get()
-# del image_embeddings
-# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-# _ = gc.collect()
+with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+    image_embeddings = pickle.load(f)
+
+img_embs=image_embeddings
+
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(image_embeddings)
+
+
+import pandas as pd
+import cupy as cp
+
+
+# 假设 image_embeddings 是图像的嵌入向量
+image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+threshold = 0.475
+
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4
+print('Finding similar images...')
+CTS = len(image_embeddings) // CHUNK
+if len(image_embeddings) % CHUNK != 0:
+    CTS += 1
+
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(image_embeddings))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
+
+    del distances, indices
+test['preds2'] = preds
+test.head()
+
+image_embeddings = image_embeddings.get()
+del image_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
 
 print('Computing text embeddings...')
 
 
-class CFG:
-    # data augmentation
-    IMG_SIZE = 512
-    MEAN = [0.485, 0.456, 0.406]
-    STD = [0.229, 0.224, 0.225]
-
-    SEED = 2023
-
-    # data split
-    N_SPLITS = 5
-    TEST_FOLD = 0
-    VALID_FOLD = 1
-
-    EPOCHS = 8
-    BATCH_SIZE = 8
-
-    NUM_WORKERS = 4
-    DEVICE = "cuda:0"
-
-    CLASSES = 11014  # !!!!!!!!!!!!!
-    SCALE = 30
-    MARGIN = 0.6
-
-    SCHEDULER_PARAMS = {
-        "lr_start": 1e-5,
-        "lr_max": 1e-5 * 32,
-        "lr_min": 1e-6,
-        "lr_ramp_ep": 5,
-        "lr_sus_ep": 0,
-        "lr_decay": 0.8,
-    }
-
-    MODEL_NAME = "eca_nfnet_l0"
-    FC_DIM = 512
-    MODEL_PATH = './bert base uncased'
-    FEAT_PATH = f"../input/shopee-embeddings/{MODEL_NAME}_arcface.npy"
-
-
-measurements = {
-    'weight': [('mg',1), ('g', 1000), ('gr', 1000), ('gram', 1000), ('kg', 1000000)],
-    'length': [('mm',1), ('cm', 10), ('m',1000), ('meter', 1000)],
-    'pieces': [ ('pc',1)],
-    'memory': [('gb', 1)],
-    'volume': [('ml', 1), ('l', 1000), ('liter',1000)]
-}
-
-def to_num(x, mult=1):
-    x = x.replace(',','.')
-    return int(float(x)*mult)
-
-
-
-import re
-
-def extract_and_replace_with_standard_unit(tit):
-    for cat, units in measurements.items():
-        min_unit = units[0][0]  # 获取最小单位
-        print(min_unit)
-        for unit_name, mult in units:
-            pat = fr'\b(\d+(?:[\,\.]\d+)?) ?{unit_name}s?\b'
-            tit = re.sub(pat, lambda x: f"{to_num(x.group(1), mult)} {min_unit}", tit)
-    return tit.strip()
 
 
 
