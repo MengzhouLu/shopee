@@ -474,11 +474,13 @@ def do_chunk(embs):
         chunk_end = min(chunk_start+step, len(embs))
         yield embs[chunk_start:chunk_end]
 def get_nearest(embs, emb_chunks, K=None, sorted=True):
+    embs = torch.from_numpy(embs)
     if K is None:
         K = min(51, len(embs))
     distances = []
     indices = []
     for chunk in emb_chunks:
+        chunk = torch.from_numpy(chunk)
         sim = embs @ chunk.T
         top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
         distances.append(top_vals.T)
@@ -487,6 +489,7 @@ def get_nearest(embs, emb_chunks, K=None, sorted=True):
 
 def combined_distances(embs_list):
     K = min(len(embs_list[0]), 51)
+    embs_list = [torch.from_numpy(embs) for embs in embs_list]
     combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]
     combined_inds = torch.cat(combined_inds, dim=1)
     res_inds,res_dists = [],[]
@@ -562,4 +565,4 @@ test_df['matches'] = matches
 
 test_df[['posting_id','matches']].to_csv('submission.csv',index=False)
 pd.read_csv('submission.csv').head()
-print("CV for text  :", round(test.apply(getMetric('matches'), axis=1).mean(), 3))
+print("CV for text  :", round(test_df.apply(getMetric('matches'), axis=1).mean(), 3))
