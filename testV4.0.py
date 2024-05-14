@@ -463,126 +463,125 @@ sub = pd.read_csv('submission.csv')
 sub.head()
 
 
-def sorted_pairs(distances, indices):
-    triplets = []
-    n= len(distances)
-    for x in range(n):
-        used=set()
-        for ind, dist in zip(indices[x].tolist(), distances[x].tolist()):
-            if not ind in used:
-                triplets.append((x, ind, dist))
-                used.add(ind)
-    # return sorted(triplets, key=lambda x: -x[2])
-    return triplets
-def do_chunk(embs):
-    step = 1000
-    for chunk_start in range(0, embs.shape[0], step):
-        chunk_end = min(chunk_start+step, len(embs))
-        yield embs[chunk_start:chunk_end]
-def get_nearest(embs, emb_chunks, K=None, sorted=True):
-
-    if K is None:
-        K = min(51, len(embs))
-    distances = []
-    indices = []
-    for chunk in emb_chunks:
-
-        sim = embs @ chunk.T
-        sim = np.asarray(sim)  # 确保 sim 是一个 NumPy 数组
-        sim=torch.from_numpy(sim)
-
-
-        top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
-        distances.append(top_vals.T)
-        indices.append(top_inds.T)
-    return torch.cat(distances), torch.cat(indices)
-
-def combined_distances(embs_list):
-    K = min(len(embs_list[0]), 51)
-    # embs_list = [torch.from_numpy(embs) for embs in embs_list]
-    combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]
-    combined_inds = torch.cat(combined_inds, dim=1)
-    res_inds,res_dists = [],[]
-    for x in range(len(combined_inds)):
-        inds = combined_inds[x].unique()
-        Ds = [embs[None,x] @ embs[inds].T for embs in embs_list]
-        D = Ds[0] + Ds[1] - Ds[0] * Ds[1]
-        D=np.asarray(D)
-        D=torch.from_numpy(D)
-        top_dists, top_inds = D.topk(K)
-        res_inds.append(inds[top_inds])
-        res_dists.append(top_dists)
-    return torch.cat(res_inds), torch.cat(res_dists)
-
-def blend_embs(embs_list, threshold, m2_threshold, data_df):
-    combined_inds, combined_dists = combined_distances(embs_list)
-    # check_measurements(combined_dists, combined_inds, data_df)
-    new_embs_list = list((torch.empty_like(torch.from_numpy(embs)) for embs in embs_list))
-    for x in range(len(embs_list[0])):
-        neighs = combined_dists[x] > threshold
-        if neighs.sum() == 1 and combined_dists[x][1]>m2_threshold:
-            neighs[1]=1
-        neigh_inds, neigh_ratios = combined_inds[x, neighs], combined_dists[x,neighs]
-        for embs, new_embs in zip(embs_list, new_embs_list):
-            embs = torch.from_numpy(embs)
-            new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
-    # return new_embs_list.map(F.normalize)
-    new_embs_list_normalized = [torch.nn.functional.normalize(emb, dim=0) for emb in
-                                new_embs_list]  # 对每个张量应用F.normalize函数
-
-    return new_embs_list_normalized
-def add_target_groups(data_df, source_column='label_group', target_column='target'):
-    target_groups = data_df.groupby(source_column).indices
-    data_df[target_column]=data_df[source_column].map(target_groups)
-    return data_df
-def get_targets_shape(train_df):
-    all_targets = add_target_groups(train_df).target.to_list()
-    all_targets_lens = [len(t) for t in all_targets]
-    targets_shape = []
-    for size in range(min(all_targets_lens), max(all_targets_lens)+1):
-        count = all_targets_lens.count(size) / len(all_targets)
-        targets_shape.append((size,count))
-    return targets_shape
-
-def chisel(groups, groups_p, pos, target_count):
-    probs = []
-    groups_lens = [len(g)for g in groups]
-    current_count = groups_lens.count(pos)
-    if current_count >= target_count:
-
-        return
-    to_cut = target_count - current_count
-    for i in range(len(groups)):
-        if len(groups_p[i])>pos:
-            probs.append((i, groups_p[i][pos]))
-    probs.sort(key=lambda x:x[1])
-    for i in range(min(to_cut, len(probs))):
-        group_idx = probs[i][0]
-        groups[group_idx]=groups[group_idx][:pos]
-        groups_p[group_idx]=groups_p[group_idx][:pos]
-
-RECIPROCAL_THRESHOLD=.97
-MIN_PAIR_THRESHOLD=.6
-new_embs = blend_embs([img_embs, bert_embs], RECIPROCAL_THRESHOLD, MIN_PAIR_THRESHOLD, test)
-combined_inds, combined_dists = combined_distances(new_embs)
-pairs = sorted_pairs(combined_dists, combined_inds)
-set_size = len(img_embs)
-
-
-
-groups = [[] for _ in range(set_size)]
-groups_p = [[] for _ in range(set_size)]
-for x,y,v in pairs:
-    groups[x].append(y)
-    groups_p[x].append(v)
-for pos, size_pct in get_targets_shape(test):
-    chisel(groups, groups_p, pos, int(size_pct * len(groups)))
-# matches = [' '.join(test_df.iloc[g].posting_id.to_list()) for g in groups]#最终输出（字符串）
-matches = [np.unique(test.iloc[g].posting_id.to_list()) for g in groups]#最终输出（数组）
-
-test['matches1'] = matches
-
-print("CV for text  :", round(test.apply(getMetric('matches1'), axis=1).mean(), 3))
-
-test[['posting_id','matches','matches1']].to_csv('submission.csv',index=False)
-pd.read_csv('submission.csv').head()
+# def sorted_pairs(distances, indices):
+#     triplets = []
+#     n= len(distances)
+#     for x in range(n):
+#         used=set()
+#         for ind, dist in zip(indices[x].tolist(), distances[x].tolist()):
+#             if not ind in used:
+#                 triplets.append((x, ind, dist))
+#                 used.add(ind)
+#     return sorted(triplets, key=lambda x: -x[2])
+# def do_chunk(embs):
+#     step = 1000
+#     for chunk_start in range(0, embs.shape[0], step):
+#         chunk_end = min(chunk_start+step, len(embs))
+#         yield embs[chunk_start:chunk_end]
+# def get_nearest(embs, emb_chunks, K=None, sorted=True):
+#
+#     if K is None:
+#         K = min(51, len(embs))
+#     distances = []
+#     indices = []
+#     for chunk in emb_chunks:
+#
+#         sim = embs @ chunk.T
+#         sim = np.asarray(sim)  # 确保 sim 是一个 NumPy 数组
+#         sim=torch.from_numpy(sim)
+#
+#
+#         top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
+#         distances.append(top_vals.T)
+#         indices.append(top_inds.T)
+#     return torch.cat(distances), torch.cat(indices)
+#
+# def combined_distances(embs_list):
+#     K = min(len(embs_list[0]), 51)
+#     # embs_list = [torch.from_numpy(embs) for embs in embs_list]
+#     combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]
+#     combined_inds = torch.cat(combined_inds, dim=1)
+#     res_inds,res_dists = [],[]
+#     for x in range(len(combined_inds)):
+#         inds = combined_inds[x].unique()
+#         Ds = [embs[None,x] @ embs[inds].T for embs in embs_list]
+#         D = Ds[0] + Ds[1] - Ds[0] * Ds[1]
+#         D=np.asarray(D)
+#         D=torch.from_numpy(D)
+#         top_dists, top_inds = D.topk(K)
+#         res_inds.append(inds[top_inds])
+#         res_dists.append(top_dists)
+#     return torch.cat(res_inds), torch.cat(res_dists)
+#
+# def blend_embs(embs_list, threshold, m2_threshold, data_df):
+#     combined_inds, combined_dists = combined_distances(embs_list)
+#     # check_measurements(combined_dists, combined_inds, data_df)
+#     new_embs_list = list((torch.empty_like(torch.from_numpy(embs)) for embs in embs_list))
+#     for x in range(len(embs_list[0])):
+#         neighs = combined_dists[x] > threshold
+#         if neighs.sum() == 1 and combined_dists[x][1]>m2_threshold:
+#             neighs[1]=1
+#         neigh_inds, neigh_ratios = combined_inds[x, neighs], combined_dists[x,neighs]
+#         for embs, new_embs in zip(embs_list, new_embs_list):
+#             embs = torch.from_numpy(embs)
+#             new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
+#     # return new_embs_list.map(F.normalize)
+#     new_embs_list_normalized = [torch.nn.functional.normalize(emb, dim=0) for emb in
+#                                 new_embs_list]  # 对每个张量应用F.normalize函数
+#
+#     return new_embs_list_normalized
+# def add_target_groups(data_df, source_column='label_group', target_column='target'):
+#     target_groups = data_df.groupby(source_column).indices
+#     data_df[target_column]=data_df[source_column].map(target_groups)
+#     return data_df
+# def get_targets_shape(train_df):
+#     all_targets = add_target_groups(train_df).target.to_list()
+#     all_targets_lens = [len(t) for t in all_targets]
+#     targets_shape = []
+#     for size in range(min(all_targets_lens), max(all_targets_lens)+1):
+#         count = all_targets_lens.count(size) / len(all_targets)
+#         targets_shape.append((size,count))
+#     return targets_shape
+#
+# def chisel(groups, groups_p, pos, target_count):
+#     probs = []
+#     groups_lens = [len(g)for g in groups]
+#     current_count = groups_lens.count(pos)
+#     if current_count >= target_count:
+#
+#         return
+#     to_cut = target_count - current_count
+#     for i in range(len(groups)):
+#         if len(groups_p[i])>pos:
+#             probs.append((i, groups_p[i][pos]))
+#     probs.sort(key=lambda x:x[1])
+#     for i in range(min(to_cut, len(probs))):
+#         group_idx = probs[i][0]
+#         groups[group_idx]=groups[group_idx][:pos]
+#         groups_p[group_idx]=groups_p[group_idx][:pos]
+#
+# RECIPROCAL_THRESHOLD=.97
+# MIN_PAIR_THRESHOLD=.6
+# new_embs = blend_embs([img_embs, bert_embs], RECIPROCAL_THRESHOLD, MIN_PAIR_THRESHOLD, test)
+# combined_inds, combined_dists = combined_distances(new_embs)
+# pairs = sorted_pairs(combined_dists, combined_inds)
+# set_size = len(img_embs)
+#
+#
+#
+# groups = [[] for _ in range(set_size)]
+# groups_p = [[] for _ in range(set_size)]
+# for x,y,v in pairs:
+#     groups[x].append(y)
+#     groups_p[x].append(v)
+# for pos, size_pct in get_targets_shape(test):
+#     chisel(groups, groups_p, pos, int(size_pct * len(groups)))
+# matches = [' '.join(test.iloc[g].posting_id.to_list()) for g in groups]#最终输出（字符串）
+# # matches = [np.unique(test.iloc[g].posting_id.to_list()) for g in groups]#输出（数组）
+#
+# test['matches1'] = matches
+#
+# print("CV for text  :", round(test.apply(getMetric('matches1'), axis=1).mean(), 3))
+#
+# test[['posting_id','matches','matches1']].to_csv('submission.csv',index=False)
+# pd.read_csv('submission.csv').head()
