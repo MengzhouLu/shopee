@@ -515,6 +515,7 @@ def blend_embs(embs_list, threshold, m2_threshold, data_df):
             neighs[1]=1
         neigh_inds, neigh_ratios = combined_inds[x, neighs], combined_dists[x,neighs]
         for embs, new_embs in zip(embs_list, new_embs_list):
+            print(type(embs), type(new_embs))
             new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
     return new_embs_list.map(F.normalize)
 def add_target_groups(data_df, source_column='label_group', target_column='target'):
