@@ -482,7 +482,7 @@ def get_nearest(embs, emb_chunks, K=None, sorted=True):
     for chunk in emb_chunks:
 
         sim = embs @ chunk.T
-        sim=torch.from_numpy(sim)
+
 
         top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
         distances.append(top_vals.T)
