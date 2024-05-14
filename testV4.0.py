@@ -538,7 +538,9 @@ def chisel(groups, groups_p, pos, target_count):
         groups[group_idx]=groups[group_idx][:pos]
         groups_p[group_idx]=groups_p[group_idx][:pos]
 
-new_embs = blend_embs([img_embs, bert_embs], RECIPROCAL_THRESHOLD=.97, MIN_PAIR_THRESHOLD=.6, valid_df)
+RECIPROCAL_THRESHOLD=.97
+MIN_PAIR_THRESHOLD=.6
+new_embs = blend_embs([img_embs, bert_embs], RECIPROCAL_THRESHOLD, MIN_PAIR_THRESHOLD, valid_df)
 combined_inds, combined_dists = combined_distances(new_embs)
 pairs = sorted_pairs(combined_dists, combined_inds)
 set_size = len(img_embs)
