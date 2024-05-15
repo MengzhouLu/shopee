@@ -158,7 +158,9 @@ model.load_state_dict(checkpoint.state_dict())
 # predict
 def test_model(model, test_loader):
     model.eval()
+    count = 0
     for batch in tqdm(test_loader):
+
         data = batch
         data_images = data["P"].to(device)
         data_texts = data["T"]
@@ -174,9 +176,15 @@ def test_model(model, test_loader):
         for i in range(len(data_texts)):
             print(f"Image Text: {data_texts[i]}")
             print("Predicted Texts:")
-            for label_idx in top_labels[i]:
-                print(data_texts[label_idx])
+            label=[data_texts[label_idx] for label_idx in top_labels[i]]
+            # for label_idx in top_labels[i]:
+            #     print(data_texts[label_idx])
+
+            if data_texts[i] not in label:
+                count += 1
+                print(label)
             print("---------")
-        break
+    print(f"Total miss count: {count}")
+
 
 test_model(model,test_loader)
