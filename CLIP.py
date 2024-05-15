@@ -293,7 +293,7 @@ import numpy as np, pandas as pd, gc
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
 
-for threshold in [0.9,0.92,0.94,0.96,0.98]:
+for threshold in [0.98,0.99,1,1,1]:
 
     print(f"threshold: {threshold}")
     preds = []
@@ -340,7 +340,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
 print('----------------------------------------')
-for threshold in [0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
+for threshold in [0.92,0.94,0.96,0.98,1,1.1]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4 * 4
@@ -387,7 +387,7 @@ test['target'] = test.label_group.map(tmp)
 
 
 print('----------------------------------------')
-for threshold in [0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
+for threshold in [0.92,0.94,0.96,0.98,1,1.1]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4 * 4
@@ -451,3 +451,6 @@ test['matches'] = test.apply(combine_for_sub, axis=1)
 print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
 print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
 print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+
+test[['posting_id','target','preds2','preds','preds3']].to_csv('submission_clip.csv',index=False)
+# pd.read_csv('submission.csv').head()
