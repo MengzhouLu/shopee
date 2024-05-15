@@ -165,8 +165,6 @@ model.load_state_dict(checkpoint.state_dict())
 def test_model(model, test_loader):
     model.eval()
     count_miss = 0
-    countA=0
-    countB=0
     for batch in tqdm(test_loader):
 
         data = batch
@@ -182,21 +180,21 @@ def test_model(model, test_loader):
             text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
             top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
         for i in range(len(data_texts)):
-            print(f"Image Text: {data_texts[i]}")
-            print("Predicted Texts:")
+            # print(f"Image Text: {data_texts[i]}")
+            # print("Predicted Texts:")
             label=[data_texts[label_idx] for label_idx in top_labels[i]]
-            if len(label)<5:
-                print(label)
             # for label_idx in top_labels[i]:
             #     print(data_texts[label_idx])
 
             if data_texts[i] not in label:
                 count_miss += 1
-            #     print(label)
+                if(len(label)<5):
+                    print(label)
+
             # print("---------")
 
     print(f"Total miss count: {count_miss}")
     accuracy = 1 - count_miss / len(test_loader.dataset)
     print(f"Accuracy: {accuracy * 100:.2f}%")
-    print(countA,countB)
+
 test_model(model,test_loader)
