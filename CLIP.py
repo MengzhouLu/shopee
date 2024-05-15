@@ -2,7 +2,7 @@ import os
 
 import cv2
 import pandas as pd
-
+from tqdm import tqdm
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import torch
 import clip
@@ -109,7 +109,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
                        weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
 for epoch in range(EPOCH):
-    for i, batch in enumerate(test_loader):
+    loss=[]
+    for batch in tqdm(test_loader):
         optimizer.zero_grad()
 
         data = batch
@@ -123,6 +124,7 @@ for epoch in range(EPOCH):
         ground_truth = torch.arange(len(images), dtype=torch.long, device=device)
 
         total_loss = (loss_img(logits_per_image, ground_truth) + loss_txt(logits_per_text, ground_truth)) / 2
+        loss.append(total_loss.item())
         total_loss.backward()
 
         if device == "cpu":
@@ -131,7 +133,8 @@ for epoch in range(EPOCH):
             convert_models_to_fp32(model)
             optimizer.step()
             clip.model.convert_weights(model)
-        print(f"[{epoch}]-[{i}]: {total_loss.item()}")
+        # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
+    print(f"[{epoch}]-[mean loss]: {np.mean(loss)}")
 
 torch.save(model, './models/model_clip.pkl')
 # torch.save({
