@@ -191,8 +191,8 @@ def test_model(model, test_loader):
         #         print(label)
         #     print("---------")
         for i in range(len(data_texts)):
-            print(f"Image Text: {data_texts[i]}")
-            print("Predicted Texts:")
+            # print(f"Image Text: {data_texts[i]}")
+            # print("Predicted Texts:")
             label = [data_texts[label_idx] for label_idx in top_labels[i]]
             if len(label) == 0:  # 如果 label 为空
                 print(f"No predicted label for {data_texts[i]}")  # 输出没有预测标签的信息
