@@ -179,16 +179,26 @@ def test_model(model, test_loader):
             image_features /= image_features.norm(dim=-1, keepdim=True)
             text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
             top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
+        # for i in range(len(data_texts)):
+        #     print(f"Image Text: {data_texts[i]}")
+        #     print("Predicted Texts:")
+        #     label=[data_texts[label_idx] for label_idx in top_labels[i]]
+        #     # for label_idx in top_labels[i]:
+        #     #     print(data_texts[label_idx])
+        #
+        #     if data_texts[i] not in label:
+        #         count += 1
+        #         print(label)
+        #     print("---------")
         for i in range(len(data_texts)):
             print(f"Image Text: {data_texts[i]}")
             print("Predicted Texts:")
-            label=[data_texts[label_idx] for label_idx in top_labels[i]]
-            # for label_idx in top_labels[i]:
-            #     print(data_texts[label_idx])
-
-            if data_texts[i] not in label:
-                count += 1
-                print(label)
+            label = [data_texts[label_idx] for label_idx in top_labels[i]]
+            if not label:  # 如果 label 为空
+                print(f"No predicted label for {data_texts[i]}")  # 输出没有预测标签的信息
+            else:
+                for predicted_label in label:
+                    print(predicted_label)  # 输出预测标签
             print("---------")
     print(f"Total miss count: {count}")
     accuracy = 1 - count / len(test_loader.dataset)
