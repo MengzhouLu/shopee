@@ -116,6 +116,7 @@ for epoch in range(EPOCH):
         data_texts = data["T"]
         images = data_images
         if len(data_texts) >77:
+            print(len(data_texts))
             data_texts = data_texts[:76]
         texts = clip.tokenize(data_texts).to(device)
 
