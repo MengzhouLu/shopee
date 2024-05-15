@@ -156,6 +156,7 @@ loss_txt = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
                        weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
+
 for epoch in range(EPOCH):
     loss=[]
     for batch in tqdm(train_loader):
@@ -183,7 +184,8 @@ for epoch in range(EPOCH):
             clip.model.convert_weights(model)
         # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
     print(f"[{epoch}]-[mean loss]: {np.mean(loss)}")
-    test_model(model,test_loader)
+    if epoch % 5 == 0:
+        test_model(model,test_loader)
 
 torch.save(model, './model_clip.pkl')
 # torch.save({
@@ -193,3 +195,5 @@ torch.save(model, './model_clip.pkl')
 #         'loss': total_loss,
 #         }, f"models/model_fscoco.pt") #just change to your preferred folder/filename
 print(f"{EPOCH} model have saved")
+
+
