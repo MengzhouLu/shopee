@@ -293,7 +293,7 @@ import numpy as np, pandas as pd, gc
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
 
-for threshold in [0.3,0.4,0.45,0.5,0.6,0.7,0.8,0.9]:
+for threshold in [0.9,0.92,0.94,0.96,0.98]:
 
     print(f"threshold: {threshold}")
     preds = []
@@ -363,9 +363,9 @@ for threshold in [0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
             preds.append(o)
 
         del distances, indices
-        test['preds'] = preds
-        test.head()
-        print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+    test['preds'] = preds
+    test.head()
+    print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
 
 text_embeddings = text_embeddings.get()
 del text_embeddings
@@ -410,9 +410,9 @@ for threshold in [0.3,0.4,0.5,0.6,0.7,0.8,0.9]:
             preds.append(o)
 
         del distances, indices
-        test['preds3'] = preds
-        test.head()
-        print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+    test['preds3'] = preds
+    test.head()
+    print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
 
 
 
