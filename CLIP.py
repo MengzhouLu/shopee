@@ -185,6 +185,7 @@ def test_model(model, test_loader):
                 print(label)
             print("---------")
     print(f"Total miss count: {count}")
-
+    accuracy = 1 - count / len(test_loader.dataset)
+    print(f"Accuracy: {accuracy * 100:.2f}%")
 
 test_model(model,test_loader)
