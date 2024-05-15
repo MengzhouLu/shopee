@@ -164,8 +164,9 @@ model.load_state_dict(checkpoint.state_dict())
 # predict
 def test_model(model, test_loader):
     model.eval()
-    count = 0
+    count_miss = 0
     countA=0
+    countB=0
     for batch in tqdm(test_loader):
 
         data = batch
@@ -180,34 +181,24 @@ def test_model(model, test_loader):
             image_features /= image_features.norm(dim=-1, keepdim=True)
             text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
             top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
-        # for i in range(len(data_texts)):
-        #     print(f"Image Text: {data_texts[i]}")
-        #     print("Predicted Texts:")
-        #     label=[data_texts[label_idx] for label_idx in top_labels[i]]
-        #     # for label_idx in top_labels[i]:
-        #     #     print(data_texts[label_idx])
-        #
-        #     if data_texts[i] not in label:
-        #         count += 1
-        #         print(label)
-        #     print("---------")
         for i in range(len(data_texts)):
-            # print(f"Image Text: {data_texts[i]}")
-            # print("Predicted Texts:")
-            label = [data_texts[label_idx] for label_idx in top_labels[i]]
-            if len(label) == 0:  # 如果 label 为空
-                count += 1
-                print(f"No predicted label for {data_texts[i]}")  # 输出没有预测标签的信息
-            if not label:  # 如果 label 为空
-                count += 1
-            if label:
-                countA += 1
-            # else:
-            #     for predicted_label in label:
-            #         print(predicted_label)  # 输出预测标签
+            print(f"Image Text: {data_texts[i]}")
+            print("Predicted Texts:")
+            label=[data_texts[label_idx] for label_idx in top_labels[i]]
+            if len(label)<5:
+                countA+=1
+            if len(label)==5:
+                countB+=1
+            # for label_idx in top_labels[i]:
+            #     print(data_texts[label_idx])
+
+            if data_texts[i] not in label:
+                count_miss += 1
+                # print(label)
             # print("---------")
-    print(f"Total miss count: {count}")
-    accuracy = 1 - count / len(test_loader.dataset)
+
+    print(f"Total miss count: {count_miss}")
+    accuracy = 1 - count_miss / len(test_loader.dataset)
     print(f"Accuracy: {accuracy * 100:.2f}%")
-    print(count,countA)
+    print(countA,countB)
 test_model(model,test_loader)
