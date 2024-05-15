@@ -217,8 +217,9 @@ def valid_model(model, test_loader):
             image_features /= image_features.norm(dim=-1, keepdim=True)
             img_embeddings.append(image_features.cpu().numpy())
             text_embeddings.append(text_features.cpu().numpy())
-            combine_embeddings.append(torch.cat((image_features, text_features), dim=1).cpu().numpy())#拼接两个向量，作为一个新的向量
-            print(image_features.shape,text_features.shape,combine_embeddings.shape)
+            combined_features = torch.cat((image_features, text_features), dim=1)
+            combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
+            print(image_features.shape,text_features.shape,combine_features.shape)
 
 valid_model(model, test_loader)
 
