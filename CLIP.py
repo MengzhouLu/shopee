@@ -236,11 +236,11 @@ with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
 with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
     pickle.dump(combine_embeddings, f)
 
-with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+with open('image_embeddings_clip.pkl', 'rb') as f:    # Unpickling
     image_embeddings = pickle.load(f)
-with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
+with open('text_embeddings_clip.pkl', 'rb') as f:    # Unpickling
     text_embeddings = pickle.load(f)
-with open('combine_embeddings.pkl', 'rb') as f:    # Unpickling
+with open('combine_embeddings_clip.pkl', 'rb') as f:    # Unpickling
     combine_embeddings = pickle.load(f)
 
 def getMetric(col):
