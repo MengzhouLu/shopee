@@ -69,8 +69,8 @@ class LandmarkDataset(Dataset):
             if len(text) > 77:#train时，截断到77个字
                 text = text[:77]
         else:
-            if len(text) > 64:#test时，截断到16个字
-                text = text[:64]
+            if len(text) > 50:#test时，截断到16个字
+                text = text[:50]
         # image = cv2.imread(row.filepath)
         # image = image[:, :, ::-1]
         image = preprocess(Image.open(row.filepath))
