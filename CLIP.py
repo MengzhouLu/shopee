@@ -200,41 +200,41 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 img_embeddings=[]
 text_embeddings=[]
 combine_embeddings=[]
-def valid_model(model, test_loader):
-    model.eval()
-
-    for batch in tqdm(test_loader):
-
-        data = batch
-        data_images = data["P"].to(device)
-        data_texts = data["T"]
-        texts = [f"a photo of a {title}" for title in data_texts]
-        texts_tokenized = clip.tokenize(texts).to(device)
-        with torch.no_grad():
-            image_features = model.encode_image(data_images).float()
-            text_features = model.encode_text(texts_tokenized).float()
-            text_features /= text_features.norm(dim=-1, keepdim=True)
-            image_features /= image_features.norm(dim=-1, keepdim=True)
-            img_embeddings.append(image_features.cpu().numpy())
-            text_embeddings.append(text_features.cpu().numpy())
-            combined_features = torch.cat((image_features, text_features), dim=1)
-            combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
-            print(image_features.shape,text_features.shape,combined_features.shape)
-
-valid_model(model, test_loader)
-
-img_embeddings=np.concatenate(img_embeddings,axis=0)
-text_embeddings=np.concatenate(text_embeddings,axis=0)
-combine_embeddings=np.concatenate(combine_embeddings,axis=0)
-print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
+# def valid_model(model, test_loader):
+#     model.eval()
+#
+#     for batch in tqdm(test_loader):
+#
+#         data = batch
+#         data_images = data["P"].to(device)
+#         data_texts = data["T"]
+#         texts = [f"a photo of a {title}" for title in data_texts]
+#         texts_tokenized = clip.tokenize(texts).to(device)
+#         with torch.no_grad():
+#             image_features = model.encode_image(data_images).float()
+#             text_features = model.encode_text(texts_tokenized).float()
+#             text_features /= text_features.norm(dim=-1, keepdim=True)
+#             image_features /= image_features.norm(dim=-1, keepdim=True)
+#             img_embeddings.append(image_features.cpu().numpy())
+#             text_embeddings.append(text_features.cpu().numpy())
+#             combined_features = torch.cat((image_features, text_features), dim=1)
+#             combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
+#             print(image_features.shape,text_features.shape,combined_features.shape)
+#
+# valid_model(model, test_loader)
+#
+# img_embeddings=np.concatenate(img_embeddings,axis=0)
+# text_embeddings=np.concatenate(text_embeddings,axis=0)
+# combine_embeddings=np.concatenate(combine_embeddings,axis=0)
+# print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
 
 import pickle
-with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
-    pickle.dump(img_embeddings, f)
-with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
-    pickle.dump(text_embeddings, f)
-with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
-    pickle.dump(combine_embeddings, f)
+# with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(img_embeddings, f)
+# with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(text_embeddings, f)
+# with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(combine_embeddings, f)
 
 with open('image_embeddings_clip.pkl', 'rb') as f:    # Unpickling
     image_embeddings = pickle.load(f)
