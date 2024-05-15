@@ -165,6 +165,7 @@ model.load_state_dict(checkpoint.state_dict())
 def test_model(model, test_loader):
     model.eval()
     count = 0
+    countA=0
     for batch in tqdm(test_loader):
 
         data = batch
@@ -195,7 +196,12 @@ def test_model(model, test_loader):
             # print("Predicted Texts:")
             label = [data_texts[label_idx] for label_idx in top_labels[i]]
             if len(label) == 0:  # 如果 label 为空
+                count += 1
                 print(f"No predicted label for {data_texts[i]}")  # 输出没有预测标签的信息
+            if not label:  # 如果 label 为空
+                count += 1
+            if label:
+                countA += 1
             # else:
             #     for predicted_label in label:
             #         print(predicted_label)  # 输出预测标签
@@ -203,5 +209,5 @@ def test_model(model, test_loader):
     print(f"Total miss count: {count}")
     accuracy = 1 - count / len(test_loader.dataset)
     print(f"Accuracy: {accuracy * 100:.2f}%")
-
+    print(count,countA)
 test_model(model,test_loader)
