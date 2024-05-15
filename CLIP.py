@@ -69,8 +69,8 @@ class LandmarkDataset(Dataset):
             if len(text) > 77:#train时，截断到77个字
                 text = text[:77]
         else:
-            if len(text) > 50:#test时，截断到16个字
-                text = text[:50]
+            if len(text) > 64:#test时，截断到16个字
+                text = text[:64]
         # image = cv2.imread(row.filepath)
         # image = image[:, :, ::-1]
         image = preprocess(Image.open(row.filepath))
@@ -99,7 +99,7 @@ dataset_train = LandmarkDataset(df_train, 'train', 'train')
 train_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True)
 
 dataset_test = LandmarkDataset(df_train, 'train', 'test')#这里的mode是test，所以会截断到63个字
-test_loader = DataLoader(dataset_test, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True)
+test_loader = DataLoader(dataset_test, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True,drop_last=True)
 
 # def convert_models_to_fp32(model):
 #     for p in model.parameters():
