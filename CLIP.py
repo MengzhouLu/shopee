@@ -149,7 +149,7 @@ test_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, s
 # load model
 device = "cuda:0" if torch.cuda.is_available() else "cpu"  # If using GPU then use mixed precision training.
 model, preprocess = clip.load("ViT-B/32", device=device, jit=False)  # Must set jit=False for training
-checkpoint = torch.load("./models/model_fscoco.pkl")
+checkpoint = torch.load("./model_clip.pkl")
 model.load_state_dict(checkpoint.state_dict())
 
 # 预测
