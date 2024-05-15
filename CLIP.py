@@ -62,6 +62,8 @@ class LandmarkDataset(Dataset):
         row = self.csv.iloc[index]
 
         text = row.title
+        text= text.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
+        text = text.lower()
         text = extract_and_replace_with_standard_unit(text)
         if len(text) > 77:
             text = text[:77]
