@@ -115,8 +115,7 @@ for epoch in range(EPOCH):
         data_images = data["P"].to(device)
         data_texts = data["T"]
         images = data_images
-        # if len(data_texts)>77:
-        #     data_texts = data_texts[:77]
+        print(len(data_texts))
         texts = clip.tokenize(data_texts).to(device)
 
         logits_per_image, logits_per_text = model(images, texts)
