@@ -65,8 +65,12 @@ class LandmarkDataset(Dataset):
         text= text.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
         text = text.lower()
         text = extract_and_replace_with_standard_unit(text)
-        if len(text) > 77:
-            text = text[:77]
+        if self.mode == 'train':
+            if len(text) > 77:#train时，截断到77个字
+                text = text[:77]
+        else:
+            if len(text) > 64:#test时，截断到16个字
+                text = text[:64]
         # image = cv2.imread(row.filepath)
         # image = image[:, :, ::-1]
         image = preprocess(Image.open(row.filepath))
@@ -92,8 +96,10 @@ df_train = df_sub.copy()
 df_train['filepath'] = df_train['image'].apply(lambda x: os.path.join('./', 'train_images', x))
 
 dataset_train = LandmarkDataset(df_train, 'train', 'train')
-test_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True)
+train_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True)
 
+dataset_test = LandmarkDataset(df_sub, 'train', 'test')
+test_loader = DataLoader(dataset_test, batch_size=BATCH_SIZE, num_workers=16, shuffle=False,pin_memory=True)
 
 # def convert_models_to_fp32(model):
 #     for p in model.parameters():
@@ -112,7 +118,7 @@ test_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, s
 #
 # for epoch in range(EPOCH):
 #     loss=[]
-#     for batch in tqdm(test_loader):
+#     for batch in tqdm(train_loader):
 #         optimizer.zero_grad()
 #
 #         data = batch
