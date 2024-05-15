@@ -199,7 +199,7 @@ def test_model(model, test_loader):
             # else:
             #     for predicted_label in label:
             #         print(predicted_label)  # 输出预测标签
-            print("---------")
+            # print("---------")
     print(f"Total miss count: {count}")
     accuracy = 1 - count / len(test_loader.dataset)
     print(f"Accuracy: {accuracy * 100:.2f}%")
