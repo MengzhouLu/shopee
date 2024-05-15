@@ -186,15 +186,13 @@ def test_model(model, test_loader):
             print("Predicted Texts:")
             label=[data_texts[label_idx] for label_idx in top_labels[i]]
             if len(label)<5:
-                countA+=1
-            if len(label)==5:
-                countB+=1
+                print(label)
             # for label_idx in top_labels[i]:
             #     print(data_texts[label_idx])
 
             if data_texts[i] not in label:
                 count_miss += 1
-                # print(label)
+            #     print(label)
             # print("---------")
 
     print(f"Total miss count: {count_miss}")
