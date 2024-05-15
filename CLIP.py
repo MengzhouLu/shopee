@@ -93,56 +93,88 @@ dataset_train = LandmarkDataset(df_train, 'train', 'train')
 test_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True)
 
 
-def convert_models_to_fp32(model):
-    for p in model.parameters():
-        p.data = p.data.float()
-        p.grad.data = p.grad.data.float()
+# def convert_models_to_fp32(model):
+#     for p in model.parameters():
+#         p.data = p.data.float()
+#         p.grad.data = p.grad.data.float()
+#
+# if device == "cpu":
+#     model.float()
+# else:
+#     clip.model.convert_weights(model)  # Actually this line is unnecessary since clip by default already on float16
+#
+# loss_img = nn.CrossEntropyLoss()
+# loss_txt = nn.CrossEntropyLoss()
+# optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
+#                        weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
+#
+# for epoch in range(EPOCH):
+#     loss=[]
+#     for batch in tqdm(test_loader):
+#         optimizer.zero_grad()
+#
+#         data = batch
+#         data_images = data["P"].to(device)
+#         data_texts = data["T"]
+#         images = data_images
+#         texts = clip.tokenize(data_texts).to(device)
+#
+#         logits_per_image, logits_per_text = model(images, texts)
+#
+#         ground_truth = torch.arange(len(images), dtype=torch.long, device=device)
+#
+#         total_loss = (loss_img(logits_per_image, ground_truth) + loss_txt(logits_per_text, ground_truth)) / 2
+#         loss.append(total_loss.item())
+#         total_loss.backward()
+#
+#         if device == "cpu":
+#             optimizer.step()
+#         else:
+#             convert_models_to_fp32(model)
+#             optimizer.step()
+#             clip.model.convert_weights(model)
+#         # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
+#     print(f"[{epoch}]-[mean loss]: {np.mean(loss)}")
+#
+# torch.save(model, './model_clip.pkl')
+# # torch.save({
+# #         'epoch': epoch,
+# #         'model_state_dict': model.state_dict(),
+# #         'optimizer_state_dict': optimizer.state_dict(),
+# #         'loss': total_loss,
+# #         }, f"models/model_fscoco.pt") #just change to your preferred folder/filename
+# print(f"{EPOCH} model have saved")
 
-if device == "cpu":
-    model.float()
-else:
-    clip.model.convert_weights(model)  # Actually this line is unnecessary since clip by default already on float16
+# 加载已经训练好的模型
+# load model
+device = "cuda:0" if torch.cuda.is_available() else "cpu"  # If using GPU then use mixed precision training.
+model, preprocess = clip.load("ViT-B/32", device=device, jit=False)  # Must set jit=False for training
+checkpoint = torch.load("./models/model_fscoco.pkl")
+model.load_state_dict(checkpoint.state_dict())
 
-loss_img = nn.CrossEntropyLoss()
-loss_txt = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
-                       weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
-
-for epoch in range(EPOCH):
-    loss=[]
+# 预测
+# predict
+def test_model(model, test_loader):
+    model.eval()
     for batch in tqdm(test_loader):
-        optimizer.zero_grad()
-
         data = batch
         data_images = data["P"].to(device)
         data_texts = data["T"]
-        images = data_images
-        texts = clip.tokenize(data_texts).to(device)
+        texts = [f"a photo of a {title}" for title in data_texts]
+        texts_tokenized = clip.tokenize(texts).to(device)
+        with torch.no_grad():
+            image_features = model.encode_image(data_images).float()
+            text_features = model.encode_text(texts_tokenized).float()
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+            text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+            top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
+        for i in range(len(data_texts)):
+            print(f"Image Text: {data_texts[i]}")
+            print("Predicted Texts:")
+            for label_idx in top_labels[i]:
+                print(data_texts[label_idx])
+            print("---------")
+        break
 
-        logits_per_image, logits_per_text = model(images, texts)
-
-        ground_truth = torch.arange(len(images), dtype=torch.long, device=device)
-
-        total_loss = (loss_img(logits_per_image, ground_truth) + loss_txt(logits_per_text, ground_truth)) / 2
-        loss.append(total_loss.item())
-        total_loss.backward()
-
-        if device == "cpu":
-            optimizer.step()
-        else:
-            convert_models_to_fp32(model)
-            optimizer.step()
-            clip.model.convert_weights(model)
-        # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
-    print(f"[{epoch}]-[mean loss]: {np.mean(loss)}")
-
-torch.save(model, './model_clip.pkl')
-# torch.save({
-#         'epoch': epoch,
-#         'model_state_dict': model.state_dict(),
-#         'optimizer_state_dict': optimizer.state_dict(),
-#         'loss': total_loss,
-#         }, f"models/model_fscoco.pt") #just change to your preferred folder/filename
-print(f"{EPOCH} model have saved")
-
-# load data
+test_model(model,test_loader)
