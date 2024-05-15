@@ -86,7 +86,7 @@ class LandmarkDataset(Dataset):
 df_sub = pd.read_csv('./train.csv')
 
 df_train = df_sub.copy()
-df_train['filepath'] = df_test['image'].apply(lambda x: os.path.join('./', 'train_images', x))
+df_train['filepath'] = df_train['image'].apply(lambda x: os.path.join('./', 'train_images', x))
 
 dataset_train = LandmarkDataset(df_train, 'train', 'train')
 test_loader = DataLoader(dataset_train, batch_size=128, num_workers=8, shuffle=True,pin_memory=True)
