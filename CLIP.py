@@ -157,43 +157,261 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
                        weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
 
-for epoch in range(EPOCH):
-    loss=[]
-    for batch in tqdm(train_loader):
-        optimizer.zero_grad()
+# for epoch in range(EPOCH):
+#     loss=[]
+#     for batch in tqdm(train_loader):
+#         optimizer.zero_grad()
+#
+#         data = batch
+#         data_images = data["P"].to(device)
+#         data_texts = data["T"]
+#         images = data_images
+#         texts = clip.tokenize(data_texts).to(device)
+#
+#         logits_per_image, logits_per_text = model(images, texts)
+#
+#         ground_truth = torch.arange(len(images), dtype=torch.long, device=device)
+#
+#         total_loss = (loss_img(logits_per_image, ground_truth) + loss_txt(logits_per_text, ground_truth)) / 2
+#         loss.append(total_loss.item())
+#         total_loss.backward()
+#
+#         if device == "cpu":
+#             optimizer.step()
+#         else:
+#             convert_models_to_fp32(model)
+#             optimizer.step()
+#             clip.model.convert_weights(model)
+#         # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
+#     print(f"[{epoch}]-[mean loss]: {np.mean(loss)}")
+#     if epoch % 5 == 0:
+#         test_model(model,test_loader)
+#
+# torch.save(model, './model_clip.pkl')
+# # torch.save({
+# #         'epoch': epoch,
+# #         'model_state_dict': model.state_dict(),
+# #         'optimizer_state_dict': optimizer.state_dict(),
+# #         'loss': total_loss,
+# #         }, f"models/model_fscoco.pt") #just change to your preferred folder/filename
+# print(f"{EPOCH} model have saved")
+
+
+img_embeddings=[]
+text_embeddings=[]
+combine_embeddings=[]
+def valid_model(model, test_loader):
+    model.eval()
+
+    for batch in tqdm(test_loader):
 
         data = batch
         data_images = data["P"].to(device)
         data_texts = data["T"]
-        images = data_images
-        texts = clip.tokenize(data_texts).to(device)
+        texts = [f"a photo of a {title}" for title in data_texts]
+        texts_tokenized = clip.tokenize(texts).to(device)
+        with torch.no_grad():
+            image_features = model.encode_image(data_images).float()
+            text_features = model.encode_text(texts_tokenized).float()
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+            img_embeddings.append(image_features.cpu().numpy())
+            text_embeddings.append(text_features.cpu().numpy())
+            combine_embeddings.append(torch.cat((image_features, text_features), dim=1).cpu().numpy())#拼接两个向量，作为一个新的向量
+            print(image_features.shape,text_features.shape,combine_embeddings.shape)
 
-        logits_per_image, logits_per_text = model(images, texts)
+valid_model(model, test_loader)
 
-        ground_truth = torch.arange(len(images), dtype=torch.long, device=device)
+img_embeddings=np.concatenate(img_embeddings,axis=0)
+text_embeddings=np.concatenate(text_embeddings,axis=0)
+combine_embeddings=np.concatenate(combine_embeddings,axis=0)
+print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
 
-        total_loss = (loss_img(logits_per_image, ground_truth) + loss_txt(logits_per_text, ground_truth)) / 2
-        loss.append(total_loss.item())
-        total_loss.backward()
+import pickle
+with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
+    pickle.dump(img_embeddings, f)
+with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
+    pickle.dump(text_embeddings, f)
+with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
+    pickle.dump(combine_embeddings, f)
 
-        if device == "cpu":
-            optimizer.step()
-        else:
-            convert_models_to_fp32(model)
-            optimizer.step()
-            clip.model.convert_weights(model)
-        # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
-    print(f"[{epoch}]-[mean loss]: {np.mean(loss)}")
-    if epoch % 5 == 0:
-        test_model(model,test_loader)
+with open('image_embeddings.pkl', 'rb') as f:    # Unpickling
+    image_embeddings = pickle.load(f)
+with open('text_embeddings.pkl', 'rb') as f:    # Unpickling
+    text_embeddings = pickle.load(f)
+with open('combine_embeddings.pkl', 'rb') as f:    # Unpickling
+    combine_embeddings = pickle.load(f)
 
-torch.save(model, './model_clip.pkl')
-# torch.save({
-#         'epoch': epoch,
-#         'model_state_dict': model.state_dict(),
-#         'optimizer_state_dict': optimizer.state_dict(),
-#         'loss': total_loss,
-#         }, f"models/model_fscoco.pt") #just change to your preferred folder/filename
-print(f"{EPOCH} model have saved")
+def getMetric(col):
+    def f1score(row):
+        n = len( np.intersect1d(row.target,row[col]) )
+        return 2*n / (len(row.target)+len(row[col]))
+    return f1score
 
 
+import cudf
+test = pd.read_csv('./train_fold.csv')
+test_gf = cudf.DataFrame(test)
+print('Using train as test to compute CV (since commit notebook). Shape is', test_gf.shape )
+print('Test shape is', test_gf.shape)
+
+
+from cuml.neighbors import NearestNeighbors
+
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(image_embeddings)
+
+
+
+import cupy as cp
+import numpy as np, pandas as pd, gc
+
+# 假设 image_embeddings 是图像的嵌入向量
+image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+threshold = 0.475
+
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4
+print('Finding similar images...')
+CTS = len(image_embeddings) // CHUNK
+if len(image_embeddings) % CHUNK != 0:
+    CTS += 1
+
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(image_embeddings))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
+
+    del distances, indices
+test['preds2'] = preds
+test.head()
+
+image_embeddings = image_embeddings.get()
+del image_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
+
+
+
+
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(text_embeddings)
+
+text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+
+tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+test['target'] = test.label_group.map(tmp)
+threshold=0.58
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4*4
+
+print('Finding similar titles...')
+CTS = len(test) // CHUNK
+if len(test) % CHUNK != 0: CTS += 1
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(test))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
+
+    del distances, indices
+text_embeddings = text_embeddings.get()
+del text_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
+
+test['preds'] = preds
+test.head()
+
+
+KNN = 50
+if len(test)==3: KNN = 2
+model = NearestNeighbors(n_neighbors=KNN)
+model.fit(combine_embeddings)
+
+combine_embeddings = cp.array(combine_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+
+tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+test['target'] = test.label_group.map(tmp)
+threshold=0.58
+print(f"threshold: {threshold}")
+preds = []
+CHUNK = 1024 * 4*4
+
+print('Finding similar titles...')
+CTS = len(test) // CHUNK
+if len(test) % CHUNK != 0: CTS += 1
+for j in range(CTS):
+    a = j * CHUNK
+    b = min((j + 1) * CHUNK, len(test))
+    print('chunk', a, 'to', b)
+    # 寻找相似的邻居
+    distances, indices = model.kneighbors(combine_embeddings[a:b], n_neighbors=KNN)
+    # 将距离转换为相似度
+    similarities = 1 / (1 + distances)
+
+    for k in range(b - a):
+        IDX = cp.where(similarities[k,] > threshold)[0]
+        o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+        preds.append(o)
+
+    del distances, indices
+combine_embeddings = combine_embeddings.get()
+del combine_embeddings
+cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+_ = gc.collect()
+
+test['preds3'] = preds
+test.head()
+
+
+
+
+
+
+
+def combine_for_sub(row):
+    x = np.concatenate([row.preds, row.preds2])
+    return ' '.join(np.unique(x))
+
+
+def combine_for_cv(row):
+    x = np.concatenate([row.preds, row.preds2])
+    return np.unique(x)
+
+
+if True:
+    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+    test['target'] = test.label_group.map(tmp)
+    test['oof'] = test.apply(combine_for_cv, axis=1)
+    test['f1'] = test.apply(getMetric('oof'), axis=1)
+    print('CV Score =', test.f1.mean())
+
+test['matches'] = test.apply(combine_for_sub, axis=1)
+
+print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
