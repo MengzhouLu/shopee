@@ -185,11 +185,8 @@ def test_model(model, test_loader):
             label=[data_texts[label_idx] for label_idx in top_labels[i]]
             # for label_idx in top_labels[i]:
             #     print(data_texts[label_idx])
-
             if data_texts[i] not in label:
                 count_miss += 1
-                if(len(label)<5):
-                    print(label)
 
             # print("---------")
 
