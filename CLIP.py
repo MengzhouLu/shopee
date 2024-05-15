@@ -293,7 +293,7 @@ import numpy as np, pandas as pd, gc
 # 假设 image_embeddings 是图像的嵌入向量
 image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
 
-for threshold in [0.98,0.99,1,1,1]:
+for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
 
     print(f"threshold: {threshold}")
     preds = []
@@ -340,7 +340,7 @@ text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规
 tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
 test['target'] = test.label_group.map(tmp)
 print('----------------------------------------')
-for threshold in [0.92,0.94,0.96,0.98,1,1.1]:
+for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4 * 4
@@ -387,7 +387,7 @@ test['target'] = test.label_group.map(tmp)
 
 
 print('----------------------------------------')
-for threshold in [0.92,0.94,0.96,0.98,1,1.1]:
+for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
     print(f"threshold: {threshold}")
     preds = []
     CHUNK = 1024 * 4 * 4
