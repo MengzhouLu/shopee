@@ -274,15 +274,9 @@ def combine_for_cv(row):
 if True:
     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
     test['target'] = test.label_group.map(tmp)
-    test['oof'] = test.apply(combine_for_cv, axis=1)
-    test['f1'] = test.apply(getMetric('oof'), axis=1)
-    print('CV Score =', test.f1.mean())
 
-test['matches'] = test.apply(combine_for_sub, axis=1)
 
-print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
-print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
-print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+
 
 from cuml.neighbors import NearestNeighbors
 
