@@ -481,6 +481,7 @@ def test2_model():
         print('图像相似度')
         for i in range(10):
             print(top_probs[i])
+            print(top_labels[i])
         print('--------------------------------------------')
 
         text_embeddings = torch.from_numpy(text_embeddings).to(device)
