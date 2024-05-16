@@ -102,7 +102,7 @@ df_train = df_sub.copy()
 df_train['filepath'] = df_train['image'].apply(lambda x: os.path.join('./', 'train_images', x))
 
 dataset_train = LandmarkDataset(df_train, 'train', 'train')
-train_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=True,pin_memory=True)
+train_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=False,pin_memory=True)
 
 dataset_test = LandmarkDataset(df_train, 'train', 'train')#这里的mode是test，所以会截断到63个字
 test_loader = DataLoader(dataset_test, batch_size=BATCH_SIZE, num_workers=16, shuffle=False,pin_memory=True)
