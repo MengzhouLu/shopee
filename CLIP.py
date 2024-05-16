@@ -523,8 +523,8 @@ def demo():
     text=['Double Tape 3M VHB','Double Tape VHB 3M']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
-
-    text_prob = text_probs.detach().cpu().float()
+    text_probs /= text_probs.norm(dim=-1, keepdim=True)
+    text_prob = text_probs.detach().cpu()
     print(text_prob)
     print(text_prob.softmax(dim=-1))
     top_probs, top_labels = text_prob.softmax(dim=-1).topk(2, dim=-1)
