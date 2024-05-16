@@ -467,7 +467,7 @@ def test2_model():
         combine_embeddings = pickle.load(f)
     with torch.no_grad():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
-        image_embeddings=image_embeddings.half()
+        # image_embeddings=image_embeddings.half()#调整精度
         image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
         image_prob = image_probs.detach().cpu()
         del image_probs
