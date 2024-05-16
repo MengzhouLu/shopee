@@ -525,7 +525,7 @@ def demo():
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
 
     text_prob = text_probs.detach().cpu()
-    top_probs, top_labels = text_prob.softmax(dim=-1).topk(5, dim=-1)
+    top_probs, top_labels = text_prob.softmax(dim=-1).topk(4, dim=-1)
     for i in range(len(text)):
         print(text[i])
         print(top_probs[i])
