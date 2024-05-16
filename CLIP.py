@@ -469,10 +469,11 @@ def test2_model():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
         image_embeddings=image_embeddings.half()
         image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
-        image_probs = image_probs.detach().cpu()
-        top_probs, top_labels = image_probs.topk(5, dim=-1)
-        print(image_probs.shape, top_probs.shape,
-              top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        image_prob = image_probs.detach().cpu()
+        del image_probs
+        torch.cuda.empty_cache() # 释放显存
+        top_probs, top_labels = image_prob.topk(5, dim=-1)
+        print(image_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
         for i in range(10):
             print(top_probs[i])
         input()
