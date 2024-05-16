@@ -465,6 +465,9 @@ def test2_model():
         text_embeddings = pickle.load(f)
     with open('combine_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         combine_embeddings = pickle.load(f)
+    torch.from_numpy(image_embeddings).cuda()
+    torch.from_numpy(text_embeddings).cuda()
+    torch.from_numpy(combine_embeddings).cuda()
     text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
     print(text_probs.shape)
     # model.eval()
