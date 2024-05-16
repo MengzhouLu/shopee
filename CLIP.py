@@ -471,6 +471,7 @@ def test2_model():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
         # image_embeddings=image_embeddings.half()#调整精度
         image_probs = (100.0 * image_embeddings @ image_embeddings.T)
+        image_probs /= image_probs.norm(dim=-1, keepdim=True)
         image_prob = image_probs.detach().cpu()
         del image_probs
         torch.cuda.empty_cache() # 释放显存
@@ -483,6 +484,7 @@ def test2_model():
 
         text_embeddings = torch.from_numpy(text_embeddings).to(device)
         text_probs = (100.0 * text_embeddings @ text_embeddings.T)
+        text_probs /= text_probs.norm(dim=-1, keepdim=True)
         text_prob = text_probs.detach().cpu()
         del text_probs
         torch.cuda.empty_cache() # 释放显存
@@ -496,6 +498,7 @@ def test2_model():
 
         combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
         combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T)
+        combine_probs /= combine_probs.norm(dim=-1, keepdim=True)
         combine_prob = combine_probs.detach().cpu()
         del combine_probs
         torch.cuda.empty_cache() # 释放显存
@@ -520,14 +523,17 @@ def test2_model():
 
 
 def demo():
-    text=['Double Tape 3M VHB','Double Tape VHB 3M']
+    text=['Double Tape 3M VHB 12 mm x 4,5 m ORIGINAL / DOUBLE FOAM TAPE',
+ 'Double Tape VHB 3M ORIGINAL 12mm x 4.5mm Busa Perekat',
+          'Maling TTS Canned Pork Luncheon Meat 397 gr',
+          'Maling Ham Pork Luncheon Meat TTS 397gr']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
     text_probs /= text_probs.norm(dim=-1, keepdim=True)
     text_prob = text_probs.detach().cpu()
     print(text_prob)
     print(text_prob.softmax(dim=-1))
-    top_probs, top_labels = text_prob.softmax(dim=-1).topk(2, dim=-1)
+    top_probs, top_labels = text_prob.softmax(dim=-1).topk(4, dim=-1)
     for i in range(len(text)):
         print(text[i])
         print(top_probs[i])
