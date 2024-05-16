@@ -469,7 +469,9 @@ def test2_model():
     image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
     top_probs, top_labels = image_probs.cpu().topk(5, dim=-1)
     print(image_probs.shape,top_probs.shape,top_labels.shape)#torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
-    print(top_probs[0])
+    for i in range(10):
+        print(top_probs[i])
+
     # text_embeddings = torch.from_numpy(text_embeddings).to(device)
     # combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
     #
