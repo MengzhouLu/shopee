@@ -470,7 +470,7 @@ def test2_model():
     with torch.no_grad():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
         # image_embeddings=image_embeddings.half()#调整精度
-        image_embeddings/=image_embeddings.norm(dim=-1, keepdim=True)
+        # image_embeddings/=image_embeddings.norm(dim=-1, keepdim=True)
         image_probs = (100.0 * image_embeddings @ image_embeddings.T)
 
         image_prob = image_probs.detach().cpu()
@@ -484,7 +484,7 @@ def test2_model():
         print('--------------------------------------------')
 
         text_embeddings = torch.from_numpy(text_embeddings).to(device)
-        text_embeddings/=text_embeddings.norm(dim=-1, keepdim=True)
+        # text_embeddings/=text_embeddings.norm(dim=-1, keepdim=True)
         text_probs = (100.0 * text_embeddings @ text_embeddings.T)
 
         text_prob = text_probs.detach().cpu()
@@ -499,7 +499,7 @@ def test2_model():
         print('--------------------------------------------')
 
         combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
-        combine_embeddings/=combine_embeddings.norm(dim=-1, keepdim=True)
+        # combine_embeddings/=combine_embeddings.norm(dim=-1, keepdim=True)
         combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T)
 
         combine_prob = combine_probs.detach().cpu()
@@ -522,7 +522,7 @@ def test2_model():
 
 
 
-test2_model()
+# test2_model()
 
 
 def demo():
@@ -531,8 +531,9 @@ def demo():
           'Maling TTS Canned Pork Luncheon Meat 397 gr',
           'Maling Ham Pork Luncheon Meat TTS 397gr']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
+    text_embeddings /= text_embeddings.norm(dim=-1, keepdim=True)
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
-    text_probs /= text_probs.norm(dim=-1, keepdim=True)
+
     text_prob = text_probs.detach().cpu()
     print(text_prob)
     print(text_prob.softmax(dim=-1))
@@ -541,4 +542,4 @@ def demo():
         print(text[i])
         print(top_probs[i])
 
-# demo()
+demo()
