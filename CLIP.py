@@ -520,11 +520,12 @@ def test2_model():
 
 
 def demo():
-    text=['Double Tape','Double Tape']
+    text=['Double Tape 3M VHB','Double Tape VHB 3M']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
 
     text_prob = text_probs.detach().cpu()
+    print(text_prob)
     top_probs, top_labels = text_prob.softmax(dim=-1).topk(2, dim=-1)
     for i in range(len(text)):
         print(text[i])
