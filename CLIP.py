@@ -458,7 +458,7 @@ import pickle
 # pd.read_csv('submission_clip.csv').head()
 
 
-def test2_model(model, test_loader):
+def test2_model():
     with open('image_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         image_embeddings = pickle.load(f)
     with open('text_embeddings_clip.pkl', 'rb') as f:  # Unpickling
@@ -497,3 +497,4 @@ def test2_model(model, test_loader):
     # print(f"Total miss count: {count_miss}")
     # accuracy = 1 - count_miss / len(test_loader.dataset)
     # print(f"Accuracy: {accuracy * 100:.2f}%")
+test2_model()
