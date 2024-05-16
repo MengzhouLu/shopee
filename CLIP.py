@@ -524,7 +524,7 @@ def demo():
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
 
-    text_prob = text_probs.detach().cpu()
+    text_prob = text_probs.detach().cpu().float()
     print(text_prob)
     print(text_prob.softmax(dim=-1))
     top_probs, top_labels = text_prob.softmax(dim=-1).topk(2, dim=-1)
