@@ -531,6 +531,7 @@ def demo():
           'Maling TTS Canned Pork Luncheon Meat 397 gr',
           'Maling Ham Pork Luncheon Meat TTS 397gr']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
+    # text_embeddings /= text_embeddings.norm(dim=-1, keepdim=True)
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
     text_probs /= text_probs.norm(dim=-1, keepdim=True)
     text_prob = text_probs.detach().cpu()
