@@ -501,11 +501,14 @@ def test2_model():
         print('图文相似度(图文拼接)')
         for i in range(10):
             print(top_probs[i])
+        print('--------------------------------------------')
 
         fix_prob=image_prob+text_prob
         top_probs, top_labels = fix_prob.softmax(dim=-1).topk(5, dim=-1)
         print(fix_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
         print('图文相似度(图文相加)')
+        for i in range(10):
+            print(top_probs[i])
         input()
 
     # model.eval()
