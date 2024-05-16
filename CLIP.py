@@ -519,7 +519,7 @@ def test2_model():
 
 
 
-# test2_model()
+test2_model()
 
 
 def demo():
@@ -538,4 +538,4 @@ def demo():
         print(text[i])
         print(top_probs[i])
 
-demo()
+# demo()
