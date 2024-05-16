@@ -466,18 +466,21 @@ def test2_model():
     with open('combine_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         combine_embeddings = pickle.load(f)
     image_embeddings = torch.from_numpy(image_embeddings).to(device)
-    text_embeddings = torch.from_numpy(text_embeddings).to(device)
-    combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
-
-    text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
     image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
-    combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T).softmax(dim=-1)
-    fix_probs = text_probs + image_probs
-
-    top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
-
-    print(text_probs.shape)
-    print(top_probs.shape,top_labels.shape)
+    top_probs, top_labels = image_probs.cpu().topk(5, dim=-1)
+    print(image_probs.shape,top_probs.shape,top_labels.shape)
+    # text_embeddings = torch.from_numpy(text_embeddings).to(device)
+    # combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
+    #
+    # text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
+    #
+    # combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T).softmax(dim=-1)
+    # fix_probs = text_probs + image_probs
+    #
+    # top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
+    #
+    # print(text_probs.shape)
+    # print(top_probs.shape,top_labels.shape)
 
 
     # model.eval()
