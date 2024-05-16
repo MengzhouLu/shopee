@@ -476,22 +476,28 @@ def test2_model():
         print(image_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
         for i in range(10):
             print(top_probs[i])
+
+        text_embeddings = torch.from_numpy(text_embeddings).to(device)
+        text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
+        text_prob = text_probs.detach().cpu()
+        del text_probs
+        torch.cuda.empty_cache() # 释放显存
+        top_probs, top_labels = text_prob.topk(5, dim=-1)
+        print(text_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        for i in range(10):
+            print(top_probs[i])
+
+        combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
+        combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T).softmax(dim=-1)
+        combine_prob = combine_probs.detach().cpu()
+        del combine_probs
+        torch.cuda.empty_cache() # 释放显存
+        top_probs, top_labels = combine_prob.topk(5, dim=-1)
+        print(combine_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        for i in range(10):
+            print(top_probs[i])
+
         input()
-
-
-    # text_embeddings = torch.from_numpy(text_embeddings).to(device)
-    # combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
-    #
-    # text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
-    #
-    # combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T).softmax(dim=-1)
-    # fix_probs = text_probs + image_probs
-    #
-    # top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
-    #
-    # print(text_probs.shape)
-    # print(top_probs.shape,top_labels.shape)
-
 
     # model.eval()
     # count_miss = 0
