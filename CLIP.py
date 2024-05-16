@@ -520,12 +520,12 @@ def test2_model():
 
 
 def demo():
-    text=['Paper Bag Victoria Secret','PAPER BAG VICTORIA SECRET','Double Tape 3M VHB 12 mm x 4,5 m ORIGINAL / DOUBLE FOAM TAPE','Double Tape VHB 3M ORIGINAL 12mm x 4.5mm Busa Perekat']
+    text=['Double Tape 3M VHB 12 mm x 4,5 m ORIGINAL / DOUBLE FOAM TAPE','Double Tape VHB 3M ORIGINAL 12mm x 4.5mm Busa Perekat']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
 
     text_prob = text_probs.detach().cpu()
-    top_probs, top_labels = text_prob.softmax(dim=-1).topk(4, dim=-1)
+    top_probs, top_labels = text_prob.softmax(dim=-1).topk(2, dim=-1)
     for i in range(len(text)):
         print(text[i])
         print(top_probs[i])
