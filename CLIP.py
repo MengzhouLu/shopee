@@ -471,6 +471,7 @@ def test2_model():
     print(image_probs.shape,top_probs.shape,top_labels.shape)#torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
     for i in range(10):
         print(top_probs[i])
+    input()
 
     # text_embeddings = torch.from_numpy(text_embeddings).to(device)
     # combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
