@@ -465,13 +465,17 @@ def test2_model():
         text_embeddings = pickle.load(f)
     with open('combine_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         combine_embeddings = pickle.load(f)
-    image_embeddings = torch.from_numpy(image_embeddings).to(device)
-    image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
-    top_probs, top_labels = image_probs.cpu().topk(5, dim=-1)
-    print(image_probs.shape,top_probs.shape,top_labels.shape)#torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
-    for i in range(10):
-        print(top_probs[i])
-    input()
+    with torch.no_grad():
+        image_embeddings = torch.from_numpy(image_embeddings).to(device)
+        image_embeddings=image_embeddings.half()
+        image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
+        top_probs, top_labels = image_probs.cpu().topk(5, dim=-1)
+        print(image_probs.shape, top_probs.shape,
+              top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        for i in range(10):
+            print(top_probs[i])
+        input()
+
 
     # text_embeddings = torch.from_numpy(text_embeddings).to(device)
     # combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
