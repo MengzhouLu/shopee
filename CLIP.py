@@ -470,8 +470,9 @@ def test2_model():
     with torch.no_grad():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
         # image_embeddings=image_embeddings.half()#调整精度
+        image_embeddings/=image_embeddings.norm(dim=-1, keepdim=True)
         image_probs = (100.0 * image_embeddings @ image_embeddings.T)
-        image_probs /= image_probs.norm(dim=-1, keepdim=True)
+
         image_prob = image_probs.detach().cpu()
         del image_probs
         torch.cuda.empty_cache() # 释放显存
@@ -483,8 +484,9 @@ def test2_model():
         print('--------------------------------------------')
 
         text_embeddings = torch.from_numpy(text_embeddings).to(device)
+        text_embeddings/=text_embeddings.norm(dim=-1, keepdim=True)
         text_probs = (100.0 * text_embeddings @ text_embeddings.T)
-        text_probs /= text_probs.norm(dim=-1, keepdim=True)
+
         text_prob = text_probs.detach().cpu()
         del text_probs
         torch.cuda.empty_cache() # 释放显存
@@ -497,8 +499,9 @@ def test2_model():
         print('--------------------------------------------')
 
         combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
+        combine_embeddings/=combine_embeddings.norm(dim=-1, keepdim=True)
         combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T)
-        combine_probs /= combine_probs.norm(dim=-1, keepdim=True)
+
         combine_prob = combine_probs.detach().cpu()
         del combine_probs
         torch.cuda.empty_cache() # 释放显存
