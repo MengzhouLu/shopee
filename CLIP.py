@@ -464,39 +464,48 @@ def test2_model():
     with open('text_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         text_embeddings = pickle.load(f)
     with open('combine_embeddings_clip.pkl', 'rb') as f:  # Unpickling
-        combine_embeddings = pickle.load(f)
+        combine_embeddings = pickle.load(f)#图文拼接
     with torch.no_grad():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
         # image_embeddings=image_embeddings.half()#调整精度
-        image_probs = (100.0 * image_embeddings @ image_embeddings.T).softmax(dim=-1)
+        image_probs = (100.0 * image_embeddings @ image_embeddings.T)
         image_prob = image_probs.detach().cpu()
         del image_probs
         torch.cuda.empty_cache() # 释放显存
-        top_probs, top_labels = image_prob.topk(5, dim=-1)
+        top_probs, top_labels = image_prob.softmax(dim=-1).topk(5, dim=-1)
         print(image_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        print('图像相似度')
         for i in range(10):
             print(top_probs[i])
+        print('--------------------------------------------')
 
         text_embeddings = torch.from_numpy(text_embeddings).to(device)
-        text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
+        text_probs = (100.0 * text_embeddings @ text_embeddings.T)
         text_prob = text_probs.detach().cpu()
         del text_probs
         torch.cuda.empty_cache() # 释放显存
-        top_probs, top_labels = text_prob.topk(5, dim=-1)
+        top_probs, top_labels = text_prob.softmax(dim=-1).topk(5, dim=-1)
         print(text_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        print('文本相似度')
         for i in range(10):
             print(top_probs[i])
+        print('--------------------------------------------')
 
         combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
-        combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T).softmax(dim=-1)
+        combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T)
         combine_prob = combine_probs.detach().cpu()
         del combine_probs
         torch.cuda.empty_cache() # 释放显存
-        top_probs, top_labels = combine_prob.topk(5, dim=-1)
+        top_probs, top_labels = combine_prob.softmax(dim=-1).topk(5, dim=-1)
         print(combine_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        print('图文相似度(图文拼接)')
         for i in range(10):
             print(top_probs[i])
 
+        fix_prob=image_prob+text_prob
+        top_probs, top_labels = fix_prob.softmax(dim=-1).topk(5, dim=-1)
+        print(fix_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
+        print('图文相似度(图文相加)')
         input()
 
     # model.eval()
