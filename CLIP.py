@@ -113,6 +113,7 @@ def convert_models_to_fp32(model):
         p.grad.data = p.grad.data.float()
 
 
+#测试CLIP能不能找到最能描述图片的文字：正确率80%左右
 def test_model(model, test_loader):
     model.eval()
     count_miss = 0
@@ -128,7 +129,7 @@ def test_model(model, test_loader):
             text_features = model.encode_text(texts_tokenized).float()
             text_features /= text_features.norm(dim=-1, keepdim=True)
             image_features /= image_features.norm(dim=-1, keepdim=True)
-            text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+            text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)#矩阵乘法相当于计算图文的相似度 softmax将相似度转化为概率
             top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
         for i in range(len(data_texts)):
             # print(f"Image Text: {data_texts[i]}")
@@ -146,6 +147,7 @@ def test_model(model, test_loader):
     print(f"Accuracy: {accuracy * 100:.2f}%")
 
 
+## train model
 if device == "cpu":
     model.float()
 else:
@@ -155,7 +157,6 @@ loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
                        weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
-
 
 # for epoch in range(EPOCH):
 #     loss=[]
@@ -200,7 +201,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 img_embeddings=[]
 text_embeddings=[]
 combine_embeddings=[]
-# def valid_model(model, test_loader):
+#由CLIP模型得到的图片和文本的嵌入向量
+# def embs_from_model(model, test_loader):
 #     model.eval()
 #
 #     for batch in tqdm(test_loader):
@@ -221,7 +223,7 @@ combine_embeddings=[]
 #             combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
 #             print(image_features.shape,text_features.shape,combined_features.shape)
 #
-# valid_model(model, test_loader)
+# embs_from_model(model, test_loader)
 #
 # img_embeddings=np.concatenate(img_embeddings,axis=0)
 # text_embeddings=np.concatenate(text_embeddings,axis=0)
@@ -236,221 +238,262 @@ import pickle
 # with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(combine_embeddings, f)
 
-with open('image_embeddings_clip.pkl', 'rb') as f:    # Unpickling
-    image_embeddings = pickle.load(f)
-with open('text_embeddings_clip.pkl', 'rb') as f:    # Unpickling
-    text_embeddings = pickle.load(f)
-with open('combine_embeddings_clip.pkl', 'rb') as f:    # Unpickling
-    combine_embeddings = pickle.load(f)
-
-def getMetric(col):
-    def f1score(row):
-        n = len( np.intersect1d(row.target,row[col]) )
-        return 2*n / (len(row.target)+len(row[col]))
-    return f1score
-
-
-
-import cudf
-test = pd.read_csv('./train_fold.csv')
-test_gf = cudf.DataFrame(test)
-print('Using train as test to compute CV (since commit notebook). Shape is', test_gf.shape )
-print('Test shape is', test_gf.shape)
-
-
-
-
-
-def combine_for_sub(row):
-    x = np.concatenate([row.preds, row.preds2])
-    return ' '.join(np.unique(x))
-
-
-def combine_for_cv(row):
-    x = np.concatenate([row.preds, row.preds2])
-    return np.unique(x)
-
-
-if True:
-    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-    test['target'] = test.label_group.map(tmp)
-
-
-
-
-from cuml.neighbors import NearestNeighbors
-
-KNN = 50
-if len(test)==3: KNN = 2
-model = NearestNeighbors(n_neighbors=KNN)
-model.fit(image_embeddings)
-
-
-
-import cupy as cp
-import numpy as np, pandas as pd, gc
-
-# 假设 image_embeddings 是图像的嵌入向量
-image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-
-for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
-
-    print(f"threshold: {threshold}")
-    preds = []
-    CHUNK = 1024 * 4
-    print('Finding similar images...')
-    CTS = len(image_embeddings) // CHUNK
-    if len(image_embeddings) % CHUNK != 0:
-        CTS += 1
-
-    for j in range(CTS):
-        a = j * CHUNK
-        b = min((j + 1) * CHUNK, len(image_embeddings))
-        print('chunk', a, 'to', b)
-        # 寻找相似的邻居
-        distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
-        # 将距离转换为相似度
-        similarities = 1 / (1 + distances)
-
-        for k in range(b - a):
-            IDX = cp.where(similarities[k,] > threshold)[0]
-            o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-            preds.append(o)
-
-        del distances, indices
-    test['preds2'] = preds
-    test.head()
-    print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
-
-image_embeddings = image_embeddings.get()
-del image_embeddings
-cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-_ = gc.collect()
-
-
-
-
-KNN = 50
-if len(test)==3: KNN = 2
-model = NearestNeighbors(n_neighbors=KNN)
-model.fit(text_embeddings)
-
-text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-
-tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-test['target'] = test.label_group.map(tmp)
-print('----------------------------------------')
-for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
-    print(f"threshold: {threshold}")
-    preds = []
-    CHUNK = 1024 * 4 * 4
-
-    print('Finding similar titles...')
-    CTS = len(test) // CHUNK
-    if len(test) % CHUNK != 0: CTS += 1
-    for j in range(CTS):
-        a = j * CHUNK
-        b = min((j + 1) * CHUNK, len(test))
-        print('chunk', a, 'to', b)
-        # 寻找相似的邻居
-        distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
-        # 将距离转换为相似度
-        similarities = 1 / (1 + distances)
-
-        for k in range(b - a):
-            IDX = cp.where(similarities[k,] > threshold)[0]
-            o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-            preds.append(o)
-
-        del distances, indices
-    test['preds'] = preds
-    test.head()
-    print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
-
-text_embeddings = text_embeddings.get()
-del text_embeddings
-cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-_ = gc.collect()
-
-
-
-
-KNN = 50
-if len(test)==3: KNN = 2
-model = NearestNeighbors(n_neighbors=KNN)
-model.fit(combine_embeddings)
-
-combine_embeddings = cp.array(combine_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
-
-tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-test['target'] = test.label_group.map(tmp)
-
-
-print('----------------------------------------')
-for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
-    print(f"threshold: {threshold}")
-    preds = []
-    CHUNK = 1024 * 4 * 4
-
-    print('Finding combine...')
-    CTS = len(test) // CHUNK
-    if len(test) % CHUNK != 0: CTS += 1
-    for j in range(CTS):
-        a = j * CHUNK
-        b = min((j + 1) * CHUNK, len(test))
-        print('chunk', a, 'to', b)
-        # 寻找相似的邻居
-        distances, indices = model.kneighbors(combine_embeddings[a:b], n_neighbors=KNN)
-        # 将距离转换为相似度
-        similarities = 1 / (1 + distances)
-
-        for k in range(b - a):
-            IDX = cp.where(similarities[k,] > threshold)[0]
-            o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
-            preds.append(o)
-
-        del distances, indices
-    test['preds3'] = preds
-    test.head()
-    print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
-
-
-
-combine_embeddings = combine_embeddings.get()
-del combine_embeddings
-cp.get_default_memory_pool().free_all_blocks()  # 释放显存
-_ = gc.collect()
-
-
-
-
-
-
-
-
-
-def combine_for_sub(row):
-    x = np.concatenate([row.preds, row.preds2])
-    return ' '.join(np.unique(x))
-
-
-def combine_for_cv(row):
-    x = np.concatenate([row.preds, row.preds2])
-    return np.unique(x)
-
-
-if True:
-    tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
-    test['target'] = test.label_group.map(tmp)
-    test['oof'] = test.apply(combine_for_cv, axis=1)
-    test['f1'] = test.apply(getMetric('oof'), axis=1)
-    print('CV Score =', test.f1.mean())
-
-test['matches'] = test.apply(combine_for_sub, axis=1)
-
-print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
-print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
-print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
-
-test[['posting_id','target','preds2','preds','preds3']].to_csv('submission_clip.csv',index=False)
-# pd.read_csv('submission.csv').head()
+# with open('image_embeddings_clip.pkl', 'rb') as f:    # Unpickling
+#     image_embeddings = pickle.load(f)
+# with open('text_embeddings_clip.pkl', 'rb') as f:    # Unpickling
+#     text_embeddings = pickle.load(f)
+# with open('combine_embeddings_clip.pkl', 'rb') as f:    # Unpickling
+#     combine_embeddings = pickle.load(f)
+#
+# def getMetric(col):
+#     def f1score(row):
+#         n = len( np.intersect1d(row.target,row[col]) )
+#         return 2*n / (len(row.target)+len(row[col]))
+#     return f1score
+#
+#
+#
+# import cudf
+# test = pd.read_csv('./train_fold.csv')
+# test_gf = cudf.DataFrame(test)
+# print('Using train as test to compute CV (since commit notebook). Shape is', test_gf.shape )
+# print('Test shape is', test_gf.shape)
+#
+#
+#
+#
+#
+# def combine_for_sub(row):
+#     x = np.concatenate([row.preds, row.preds2])
+#     return ' '.join(np.unique(x))
+#
+#
+# def combine_for_cv(row):
+#     x = np.concatenate([row.preds, row.preds2])
+#     return np.unique(x)
+#
+#
+# if True:
+#     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+#     test['target'] = test.label_group.map(tmp)
+#
+#
+#
+#
+# from cuml.neighbors import NearestNeighbors
+#
+# KNN = 50
+# if len(test)==3: KNN = 2
+# model = NearestNeighbors(n_neighbors=KNN)
+# model.fit(image_embeddings)
+#
+#
+#
+# import cupy as cp
+# import numpy as np, pandas as pd, gc
+#
+# # 假设 image_embeddings 是图像的嵌入向量
+# image_embeddings = cp.array(image_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+#
+# for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
+#
+#     print(f"threshold: {threshold}")
+#     preds = []
+#     CHUNK = 1024 * 4
+#     print('Finding similar images...')
+#     CTS = len(image_embeddings) // CHUNK
+#     if len(image_embeddings) % CHUNK != 0:
+#         CTS += 1
+#
+#     for j in range(CTS):
+#         a = j * CHUNK
+#         b = min((j + 1) * CHUNK, len(image_embeddings))
+#         print('chunk', a, 'to', b)
+#         # 寻找相似的邻居
+#         distances, indices = model.kneighbors(image_embeddings[a:b], n_neighbors=KNN)
+#         # 将距离转换为相似度
+#         similarities = 1 / (1 + distances)
+#
+#         for k in range(b - a):
+#             IDX = cp.where(similarities[k,] > threshold)[0]
+#             o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+#             preds.append(o)
+#
+#         del distances, indices
+#     test['preds2'] = preds
+#     test.head()
+#     print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+#
+# image_embeddings = image_embeddings.get()
+# del image_embeddings
+# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+# _ = gc.collect()
+#
+#
+#
+#
+# KNN = 50
+# if len(test)==3: KNN = 2
+# model = NearestNeighbors(n_neighbors=KNN)
+# model.fit(text_embeddings)
+#
+# text_embeddings = cp.array(text_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+#
+# tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+# test['target'] = test.label_group.map(tmp)
+# print('----------------------------------------')
+# for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
+#     print(f"threshold: {threshold}")
+#     preds = []
+#     CHUNK = 1024 * 4 * 4
+#
+#     print('Finding similar titles...')
+#     CTS = len(test) // CHUNK
+#     if len(test) % CHUNK != 0: CTS += 1
+#     for j in range(CTS):
+#         a = j * CHUNK
+#         b = min((j + 1) * CHUNK, len(test))
+#         print('chunk', a, 'to', b)
+#         # 寻找相似的邻居
+#         distances, indices = model.kneighbors(text_embeddings[a:b], n_neighbors=KNN)
+#         # 将距离转换为相似度
+#         similarities = 1 / (1 + distances)
+#
+#         for k in range(b - a):
+#             IDX = cp.where(similarities[k,] > threshold)[0]
+#             o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+#             preds.append(o)
+#
+#         del distances, indices
+#     test['preds'] = preds
+#     test.head()
+#     print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+#
+# text_embeddings = text_embeddings.get()
+# del text_embeddings
+# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+# _ = gc.collect()
+#
+#
+#
+#
+# KNN = 50
+# if len(test)==3: KNN = 2
+# model = NearestNeighbors(n_neighbors=KNN)
+# model.fit(combine_embeddings)
+#
+# combine_embeddings = cp.array(combine_embeddings)  # 使用了 CuPy 库来进行大规模向量化计算
+#
+# tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+# test['target'] = test.label_group.map(tmp)
+#
+#
+# print('----------------------------------------')
+# for threshold in [0.99,0.992,0.994,0.996,0.998,0.999]:
+#     print(f"threshold: {threshold}")
+#     preds = []
+#     CHUNK = 1024 * 4 * 4
+#
+#     print('Finding combine...')
+#     CTS = len(test) // CHUNK
+#     if len(test) % CHUNK != 0: CTS += 1
+#     for j in range(CTS):
+#         a = j * CHUNK
+#         b = min((j + 1) * CHUNK, len(test))
+#         print('chunk', a, 'to', b)
+#         # 寻找相似的邻居
+#         distances, indices = model.kneighbors(combine_embeddings[a:b], n_neighbors=KNN)
+#         # 将距离转换为相似度
+#         similarities = 1 / (1 + distances)
+#
+#         for k in range(b - a):
+#             IDX = cp.where(similarities[k,] > threshold)[0]
+#             o = test.iloc[cp.asnumpy(indices[k, IDX])].posting_id.values
+#             preds.append(o)
+#
+#         del distances, indices
+#     test['preds3'] = preds
+#     test.head()
+#     print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+#
+#
+#
+# combine_embeddings = combine_embeddings.get()
+# del combine_embeddings
+# cp.get_default_memory_pool().free_all_blocks()  # 释放显存
+# _ = gc.collect()
+#
+#
+#
+#
+#
+#
+#
+#
+#
+# def combine_for_sub(row):
+#     x = np.concatenate([row.preds, row.preds2])
+#     return ' '.join(np.unique(x))
+#
+#
+# def combine_for_cv(row):
+#     x = np.concatenate([row.preds, row.preds2])
+#     return np.unique(x)
+#
+#
+# if True:
+#     tmp = test.groupby('label_group').posting_id.agg('unique').to_dict()
+#     test['target'] = test.label_group.map(tmp)
+#     test['oof'] = test.apply(combine_for_cv, axis=1)
+#     test['f1'] = test.apply(getMetric('oof'), axis=1)
+#     print('CV Score =', test.f1.mean())
+#
+# test['matches'] = test.apply(combine_for_sub, axis=1)
+#
+# print("CV for image :", round(test.apply(getMetric('preds2'), axis=1).mean(), 3))
+# print("CV for text  :", round(test.apply(getMetric('preds'), axis=1).mean(), 3))
+# print("CV for combine:", round(test.apply(getMetric('preds3'), axis=1).mean(), 3))
+#
+# test[['posting_id','target','preds2','preds','preds3']].to_csv('submission_clip.csv',index=False)
+# pd.read_csv('submission_clip.csv').head()
+
+
+def test2_model(model, test_loader):
+    with open('image_embeddings_clip.pkl', 'rb') as f:  # Unpickling
+        image_embeddings = pickle.load(f)
+    with open('text_embeddings_clip.pkl', 'rb') as f:  # Unpickling
+        text_embeddings = pickle.load(f)
+    with open('combine_embeddings_clip.pkl', 'rb') as f:  # Unpickling
+        combine_embeddings = pickle.load(f)
+    text_probs = (100.0 * text_embeddings @ text_embeddings.T).softmax(dim=-1)
+    print(text_probs.shape)
+    # model.eval()
+    # count_miss = 0
+    # for batch in tqdm(test_loader):
+    #
+    #     data = batch
+    #     data_images = data["P"].to(device)
+    #     data_texts = data["T"]
+    #     texts = [f"a photo of a {title}" for title in data_texts]
+    #     texts_tokenized = clip.tokenize(texts).to(device)
+    #     with torch.no_grad():
+    #         image_features = model.encode_image(data_images).float()
+    #         text_features = model.encode_text(texts_tokenized).float()
+    #         text_features /= text_features.norm(dim=-1, keepdim=True)
+    #         image_features /= image_features.norm(dim=-1, keepdim=True)
+    #         text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)#矩阵乘法相当于计算图文的相似度 softmax将相似度转化为概率
+    #         top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
+    #     for i in range(len(data_texts)):
+    #         # print(f"Image Text: {data_texts[i]}")
+    #         # print("Predicted Texts:")
+    #         label=[data_texts[label_idx] for label_idx in top_labels[i]]
+    #         # for label_idx in top_labels[i]:
+    #         #     print(data_texts[label_idx])
+    #         if data_texts[i] not in label:
+    #             count_miss += 1
+    #
+    #         # print("---------")
+    #
+    # print(f"Total miss count: {count_miss}")
+    # accuracy = 1 - count_miss / len(test_loader.dataset)
+    # print(f"Accuracy: {accuracy * 100:.2f}%")
