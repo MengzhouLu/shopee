@@ -522,7 +522,7 @@ def test2_model():
 
 
 
-test2_model()
+# test2_model()
 
 
 def demo():
@@ -541,5 +541,4 @@ def demo():
     for i in range(len(text)):
         print(text[i])
         print(top_probs[i])
-
-# demo()
+demo()
