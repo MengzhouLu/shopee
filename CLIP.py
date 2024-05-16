@@ -489,6 +489,7 @@ def test2_model():
         print('文本相似度')
         for i in range(10):
             print(top_probs[i])
+            print(test.iloc[top_labels[i]]['title'].values)
         print('--------------------------------------------')
 
         combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
