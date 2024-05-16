@@ -216,13 +216,13 @@ def embs_from_model(model, test_loader):
         with torch.no_grad():
             image_features = model.encode_image(data_images).float()
             text_features = model.encode_text(texts_tokenized).float()
-            # text_features /= text_features.norm(dim=-1, keepdim=True)
-            # image_features /= image_features.norm(dim=-1, keepdim=True)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
             img_embeddings.append(image_features.cpu().numpy())
             text_embeddings.append(text_features.cpu().numpy())
             combined_features = torch.cat((image_features, text_features), dim=1)
             combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
-            print(image_features.shape,text_features.shape,combined_features.shape)
+            # print(image_features.shape,text_features.shape,combined_features.shape)#torch.Size([128, 512]) torch.Size([128, 512]) torch.Size([128, 1024])
 
 embs_from_model(model, test_loader)
 
@@ -232,11 +232,11 @@ combine_embeddings=np.concatenate(combine_embeddings,axis=0)
 print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
 
 import pickle
-with open('image_embeddings_clip1.pkl', 'wb') as f:    #Pickling
+with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
     pickle.dump(img_embeddings, f)
-with open('text_embeddings_clip1.pkl', 'wb') as f:    #Pickling
+with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
     pickle.dump(text_embeddings, f)
-with open('combine_embeddings_clip1.pkl', 'wb') as f:    #Pickling
+with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
     pickle.dump(combine_embeddings, f)
 
 # with open('image_embeddings_clip.pkl', 'rb') as f:    # Unpickling
@@ -461,11 +461,11 @@ with open('combine_embeddings_clip1.pkl', 'wb') as f:    #Pickling
 import pickle
 test = pd.read_csv('./train.csv')
 def test2_model():
-    with open('image_embeddings_clip1.pkl', 'rb') as f:  # Unpickling
+    with open('image_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         image_embeddings = pickle.load(f)
-    with open('text_embeddings_clip1.pkl', 'rb') as f:  # Unpickling
+    with open('text_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         text_embeddings = pickle.load(f)
-    with open('combine_embeddings_clip1.pkl', 'rb') as f:  # Unpickling
+    with open('combine_embeddings_clip.pkl', 'rb') as f:  # Unpickling
         combine_embeddings = pickle.load(f)#图文拼接
     with torch.no_grad():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
@@ -486,7 +486,7 @@ def test2_model():
         text_embeddings = torch.from_numpy(text_embeddings).to(device)
         # text_embeddings/=text_embeddings.norm(dim=-1, keepdim=True)
         text_probs = (100.0 * text_embeddings @ text_embeddings.T)
-
+        text_probs/=text_probs.norm(dim=-1, keepdim=True)
         text_prob = text_probs.detach().cpu()
         del text_probs
         torch.cuda.empty_cache() # 释放显存
@@ -501,7 +501,7 @@ def test2_model():
         combine_embeddings = torch.from_numpy(combine_embeddings).to(device)
         # combine_embeddings/=combine_embeddings.norm(dim=-1, keepdim=True)
         combine_probs = (100.0 * combine_embeddings @ combine_embeddings.T)
-
+        combine_probs/=combine_probs.norm(dim=-1, keepdim=True)
         combine_prob = combine_probs.detach().cpu()
         del combine_probs
         torch.cuda.empty_cache() # 释放显存
