@@ -520,7 +520,7 @@ def test2_model():
 
 
 def demo():
-    text=['Double Tape 3M VHB 12 mm x 4,5 m ORIGINAL','Double Tape VHB 3M ORIGINAL 12mm x 4.5mm']
+    text=['Double Tape 3M VHB','Double Tape VHB 3M']
     text_embeddings = model.encode_text(clip.tokenize(text).to(device))
     text_probs = (100.0 * text_embeddings @ text_embeddings.T)
 
