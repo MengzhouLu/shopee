@@ -496,6 +496,8 @@ def test2_model():
         top_probs, top_labels = text_prob.softmax(dim=-1).topk(5, dim=-1)
         print(text_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
         print('文本相似度')
+        with open('text_labels.pkl', 'wb') as f:  # Pickling
+            pickle.dump(top_labels.numpy(), f)
         for i in range(10):
             print(top_probs[i])
             print(test.iloc[top_labels[i]]['title'].values)
@@ -511,6 +513,8 @@ def test2_model():
         top_probs, top_labels = combine_prob.softmax(dim=-1).topk(5, dim=-1)
         print(combine_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
         print('图文相似度(图文拼接)')
+        with open('combine_labels.pkl', 'wb') as f:  # Pickling
+            pickle.dump(top_labels.numpy(), f)
         for i in range(10):
             print(top_probs[i])
         print('--------------------------------------------')
@@ -519,6 +523,8 @@ def test2_model():
         top_probs, top_labels = fix_prob.softmax(dim=-1).topk(5, dim=-1)
         print(fix_prob.shape, top_probs.shape,top_labels.shape)  # torch.Size([34250, 34250]) torch.Size([34250, 5]) torch.Size([34250, 5])
         print('图文相似度(图文相加)')
+        with open('fix_labels.pkl', 'wb') as f:  # Pickling
+            pickle.dump(top_labels.numpy(), f)
         for i in range(10):
             print(top_probs[i])
         input()
