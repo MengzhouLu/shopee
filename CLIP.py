@@ -198,44 +198,44 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 # print(f"{EPOCH} model have saved")
 
 
-img_embeddings=[]
-text_embeddings=[]
-combine_embeddings=[]
-#由CLIP模型得到的图片和文本的嵌入向量
-def embs_from_model(model, test_loader):
-    model.eval()
-
-    for batch in tqdm(test_loader):
-
-        data = batch
-        data_images = data["P"].to(device)
-        data_texts = data["T"]
-        # texts = [f"a photo of a {title}" for title in data_texts]
-        texts = data_texts
-        texts_tokenized = clip.tokenize(texts).to(device)
-        with torch.no_grad():
-            image_features = model.encode_image(data_images).float()
-            text_features = model.encode_text(texts_tokenized).float()
-            text_features /= text_features.norm(dim=-1, keepdim=True)
-            image_features /= image_features.norm(dim=-1, keepdim=True)
-            img_embeddings.append(image_features.cpu().numpy())
-            text_embeddings.append(text_features.cpu().numpy())
-            combined_features = torch.cat((image_features, text_features), dim=1)
-            combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
-            print(image_features.shape,text_features.shape,combined_features.shape)
-
-embs_from_model(model, test_loader)
-
-img_embeddings=np.concatenate(img_embeddings,axis=0)
-text_embeddings=np.concatenate(text_embeddings,axis=0)
-combine_embeddings=np.concatenate(combine_embeddings,axis=0)
-print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
-
-import pickle
-with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
-    pickle.dump(img_embeddings, f)
-with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
-    pickle.dump(text_embeddings, f)
+# img_embeddings=[]
+# text_embeddings=[]
+# combine_embeddings=[]
+# #由CLIP模型得到的图片和文本的嵌入向量
+# def embs_from_model(model, test_loader):
+#     model.eval()
+#
+#     for batch in tqdm(test_loader):
+#
+#         data = batch
+#         data_images = data["P"].to(device)
+#         data_texts = data["T"]
+#         # texts = [f"a photo of a {title}" for title in data_texts]
+#         texts = data_texts
+#         texts_tokenized = clip.tokenize(texts).to(device)
+#         with torch.no_grad():
+#             image_features = model.encode_image(data_images).float()
+#             text_features = model.encode_text(texts_tokenized).float()
+#             text_features /= text_features.norm(dim=-1, keepdim=True)
+#             image_features /= image_features.norm(dim=-1, keepdim=True)
+#             img_embeddings.append(image_features.cpu().numpy())
+#             text_embeddings.append(text_features.cpu().numpy())
+#             combined_features = torch.cat((image_features, text_features), dim=1)
+#             combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
+#             print(image_features.shape,text_features.shape,combined_features.shape)
+#
+# embs_from_model(model, test_loader)
+#
+# img_embeddings=np.concatenate(img_embeddings,axis=0)
+# text_embeddings=np.concatenate(text_embeddings,axis=0)
+# combine_embeddings=np.concatenate(combine_embeddings,axis=0)
+# print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
+#
+# import pickle
+# with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(img_embeddings, f)
+# with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
+#     pickle.dump(text_embeddings, f)
 # with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(combine_embeddings, f)
 
@@ -458,6 +458,7 @@ with open('text_embeddings_clip.pkl', 'wb') as f:    #Pickling
 # test[['posting_id','target','preds2','preds','preds3']].to_csv('submission_clip.csv',index=False)
 # pd.read_csv('submission_clip.csv').head()
 
+import pickle
 test = pd.read_csv('./train.csv')
 def test2_model():
     with open('image_embeddings_clip.pkl', 'rb') as f:  # Unpickling
@@ -513,34 +514,20 @@ def test2_model():
             print(top_probs[i])
         input()
 
-    # model.eval()
-    # count_miss = 0
-    # for batch in tqdm(test_loader):
-    #
-    #     data = batch
-    #     data_images = data["P"].to(device)
-    #     data_texts = data["T"]
-    #     texts = [f"a photo of a {title}" for title in data_texts]
-    #     texts_tokenized = clip.tokenize(texts).to(device)
-    #     with torch.no_grad():
-    #         image_features = model.encode_image(data_images).float()
-    #         text_features = model.encode_text(texts_tokenized).float()
-    #         text_features /= text_features.norm(dim=-1, keepdim=True)
-    #         image_features /= image_features.norm(dim=-1, keepdim=True)
-    #         text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)#矩阵乘法相当于计算图文的相似度 softmax将相似度转化为概率
-    #         top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
-    #     for i in range(len(data_texts)):
-    #         # print(f"Image Text: {data_texts[i]}")
-    #         # print("Predicted Texts:")
-    #         label=[data_texts[label_idx] for label_idx in top_labels[i]]
-    #         # for label_idx in top_labels[i]:
-    #         #     print(data_texts[label_idx])
-    #         if data_texts[i] not in label:
-    #             count_miss += 1
-    #
-    #         # print("---------")
-    #
-    # print(f"Total miss count: {count_miss}")
-    # accuracy = 1 - count_miss / len(test_loader.dataset)
-    # print(f"Accuracy: {accuracy * 100:.2f}%")
-test2_model()
+
+
+# test2_model()
+
+
+def demo():
+    text=['Paper Bag Victoria Secret','PAPER BAG VICTORIA SECRET','Double Tape 3M VHB 12 mm x 4,5 m ORIGINAL / DOUBLE FOAM TAPE','Double Tape VHB 3M ORIGINAL 12mm x 4.5mm Busa Perekat']
+    text_embeddings = model.encode_text(clip.tokenize(text).to(device))
+    text_probs = (100.0 * text_embeddings @ text_embeddings.T)
+
+    text_prob = text_probs.detach().cpu()
+    top_probs, top_labels = text_prob.softmax(dim=-1).topk(5, dim=-1)
+    for i in range(len(text)):
+        print(text[i])
+        print(top_probs[i])
+
+demo()
