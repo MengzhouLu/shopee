@@ -526,6 +526,7 @@ def demo():
 
     text_prob = text_probs.detach().cpu()
     print(text_prob)
+    print(text_prob.softmax(dim=-1))
     top_probs, top_labels = text_prob.softmax(dim=-1).topk(2, dim=-1)
     for i in range(len(text)):
         print(text[i])
