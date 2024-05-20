@@ -458,6 +458,50 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 # test[['posting_id','target','preds2','preds','preds3']].to_csv('submission_clip.csv',index=False)
 # pd.read_csv('submission_clip.csv').head()
 
+
+
+
+def do_chunk(embs):
+    step = 1000
+    for chunk_start in range(0, embs.shape[0], step):
+        chunk_end = min(chunk_start+step, len(embs))
+        yield embs[chunk_start:chunk_end]
+def get_nearest(embs, emb_chunks, K=None, sorted=True):
+    if K is None:
+        K = min(51, len(embs))
+    distances = []
+    indices = []
+    for chunk in emb_chunks:
+        sim = embs @ chunk.T
+        top_vals, top_inds = sim.topk(K, dim=0, sorted=sorted)
+        distances.append(top_vals.T)
+        indices.append(top_inds.T)
+    return torch.cat(distances), torch.cat(indices)
+
+def combined_distances(embs_list):
+    K = min(len(embs_list[0]), 51)
+    combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]
+    combined_inds = torch.cat(combined_inds, dim=1)
+    res_inds,res_dists = [],[]
+    for x in range(len(combined_inds)):
+        inds = combined_inds[x].unique()
+        Ds = [embs[None,x] @ embs[inds].T for embs in embs_list]
+        D = Ds[0] + Ds[1] - Ds[0] * Ds[1]
+        top_dists, top_inds = D.topk(K)
+        res_inds.append(inds[top_inds])
+        res_dists.append(top_dists)
+    return torch.cat(res_inds), torch.cat(res_dists)
+
+
+
+
+
+
+
+
+
+
+
 import pickle
 test = pd.read_csv('./train.csv')
 image_labels=[]
@@ -527,6 +571,12 @@ def test2_model():
             pickle.dump(top_labels.numpy(), f)
         for i in range(10):
             print(top_probs[i])
+
+        combined_inds, combined_dists = combined_distances([image_embeddings, text_embeddings])
+        print(combined_inds.shape, combined_dists.shape)
+        for i in range(10):
+            print(combined_inds[i])
+            print(test.iloc[combined_inds[i]]['title'].values)
         input()
 
 
