@@ -503,7 +503,7 @@ def blend_embs(embs_list, threshold=0.97, m2_threshold=0.6):
         neigh_inds, neigh_ratios = combined_inds[x, neighs], combined_dists[x,neighs]
         for embs, new_embs in zip(embs_list, new_embs_list):
             new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
-    return new_embs_list.map(F.normalize)
+    return [F.normalize(new_embs, dim=-1) for new_embs in new_embs_list]
 
 
 
