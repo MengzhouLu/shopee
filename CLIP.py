@@ -492,7 +492,18 @@ def combined_distances(embs_list):
         res_dists.append(top_dists)
     return torch.cat(res_inds), torch.cat(res_dists)
 
+def blend_embs(embs_list, threshold=0.97, m2_threshold=0.6):
+    combined_inds, combined_dists = combined_distances(embs_list)
 
+    new_embs_list = list((torch.empty_like(embs) for embs in embs_list))
+    for x in range(len(embs_list[0])):
+        neighs = combined_dists[x] > threshold
+        if neighs.sum() == 1 and combined_dists[x][1]>m2_threshold:
+            neighs[1]=1
+        neigh_inds, neigh_ratios = combined_inds[x, neighs], combined_dists[x,neighs]
+        for embs, new_embs in zip(embs_list, new_embs_list):
+            new_embs[x] = (embs[neigh_inds] * neigh_ratios.view(-1,1)).sum(dim=0)
+    return new_embs_list.map(F.normalize)
 
 
 
@@ -572,7 +583,8 @@ def test2_model():
         for i in range(10):
             print(top_probs[i])
 
-        combined_inds, combined_dists = combined_distances([image_embeddings, text_embeddings])
+        new_embs = blend_embs([image_embeddings, text_embeddings], threshold=0.97, m2_threshold=0.6)
+        combined_inds, combined_dists = combined_distances(new_embs)
         print(combined_inds.shape, combined_dists.shape)
         for i in range(10):
             print(combined_inds[i][:5])
