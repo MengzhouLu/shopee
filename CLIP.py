@@ -593,7 +593,8 @@ def test2_model():
                 if combined_dists[i][j]>0.97:
                     tep.append(combined_inds[i][j].cpu().item())
             blend_list.append(tep)
-
+        with open('blend_labels.pkl', 'wb') as f:  # Pickling
+            pickle.dump(blend_list, f)
         print(blend_list[:5])
 
 
