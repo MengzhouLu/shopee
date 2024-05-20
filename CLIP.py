@@ -587,7 +587,7 @@ def test2_model():
         combined_inds, combined_dists = combined_distances(new_embs)
         print(combined_inds.shape, combined_dists.shape)
         blend_list=np.array([])
-        for i in range(combined_inds):
+        for i in (combined_inds):
             tep=np.array([])
             for j in combined_inds[i]:
                 if combined_dists[i][j]>0.97:
