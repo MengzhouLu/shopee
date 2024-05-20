@@ -572,11 +572,11 @@ def test2_model():
         for i in range(10):
             print(top_probs[i])
 
-        combined_inds, combined_dists = combined_distances([image_embeddings, text_embeddings])
+        combined_inds, combined_dists = combined_distances([image_embeddings, text_embeddings]).cpu()
         print(combined_inds.shape, combined_dists.shape)
         for i in range(10):
-            print(combined_inds[i])
-            print(test.iloc[combined_inds[i]]['title'].values)
+            print(combined_inds[i][:5])
+            print(test.iloc[combined_inds[i][:5]]['title'].values)
         input()
 
 
