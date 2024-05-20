@@ -590,7 +590,7 @@ def test2_model():
         for i in range(combined_inds.shape[0]):
             tep=[]
             for j in range(combined_inds.shape[1]):
-                if combined_dists[i][j]>0.97:
+                if combined_dists[i][j]>0.99:
                     tep.append(combined_inds[i][j].cpu().item())
             blend_list.append(tep)
         with open('blend_labels.pkl', 'wb') as f:  # Pickling
