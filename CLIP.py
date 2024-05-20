@@ -576,6 +576,7 @@ def test2_model():
         print(combined_inds.shape, combined_dists.shape)
         for i in range(10):
             print(combined_inds[i][:5])
+            print(combined_dists[i][:5])
             combined_inds=combined_inds.cpu()
             print(test.iloc[combined_inds[i][:5]]['title'].values)
         input()
