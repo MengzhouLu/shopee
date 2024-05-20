@@ -591,7 +591,7 @@ def test2_model():
             tep=np.array([])
             for j in combined_inds[i]:
                 if combined_dists[i][j]>0.97:
-                    tep=np.append(tep,j)
+                    tep=np.append(tep,j.cpu().item())
             blend_list=np.append(blend_list,tep)
 
         print(blend_list.shape)
