@@ -585,7 +585,7 @@ def test2_model():
 
         new_embs = blend_embs([image_embeddings, text_embeddings], threshold=0.97, m2_threshold=0.6)
         combined_inds, combined_dists = combined_distances(new_embs)
-        print(combined_inds.shape, combined_dists.shape)
+        print(combined_dists[:10])
         blend_list=[]
         for i in range(combined_inds.shape[0]):
             tep=[]
