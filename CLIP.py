@@ -586,12 +586,16 @@ def test2_model():
         new_embs = blend_embs([image_embeddings, text_embeddings], threshold=0.97, m2_threshold=0.6)
         combined_inds, combined_dists = combined_distances(new_embs)
         print(combined_inds.shape, combined_dists.shape)
-        for i in range(10):
-            print(combined_inds[i][:5])
-            print(combined_dists[i][:5])
-            combined_inds=combined_inds.cpu()
-            print(test.iloc[combined_inds[i][:5]]['title'].values)
-        input()
+        blend_list=np.array([])
+        for i in range(combined_inds.shape[0]):
+            tep=np.array([])
+            for j in combined_inds[i]:
+                if combined_dists[i][j]>0.97:
+                    tep=np.append(tep,j)
+            blend_list=np.append(blend_list,tep)
+
+        print(blend_list.shape)
+
 
 
 
