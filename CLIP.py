@@ -13,7 +13,7 @@ from torchvision import transforms, utils
 import os
 import numpy as np
 import re
-
+import torch.nn.functional as F
 # parameter
 EPOCH = 30
 BATCH_SIZE = 128
