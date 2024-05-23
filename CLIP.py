@@ -39,12 +39,13 @@ measurements = {
 def to_num(x, mult=1):
     x = x.replace(',','.')
     return int(float(x)*mult)
+# 将title中的单位转换为标准单位  如1KG -> 1000000mg 方便匹配
 def extract_and_replace_with_standard_unit(tit):
     for cat, units in measurements.items():
-        min_unit = units[0][0]  # 获取最小单位
+        min_unit = units[0][0]  # 获取measurements最小单位 以转化为该单位
         for unit_name, mult in units:
             pat = fr'\b(\d+(?:[\,\.]\d+)?) ?{unit_name}s?\b'
-            tit = re.sub(pat, lambda x: f"{to_num(x.group(1), mult)} {min_unit}", tit)
+            tit = re.sub(pat, lambda x: f"{to_num(x.group(1), mult)} {min_unit}", tit)#使用正则表达式将替换单位
     return tit.strip()
 
 class LandmarkDataset(Dataset):
@@ -68,20 +69,21 @@ class LandmarkDataset(Dataset):
         row = self.csv.iloc[index]
 
         text = row.title
-        text= text.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')
+        text= text.encode('latin1').decode('unicode-escape').encode('latin1').decode('utf-8')# shopee数据集的title中有一些奇怪的字符，需要解码防止乱码
         text = text.lower()
         text = extract_and_replace_with_standard_unit(text)
+        #CLIP模型要求输入的文本长度不超过77个字，这里截断
         if self.mode == 'train':
             if len(text) > 77:#train时，截断到77个字
                 text = text[:77]
         else:
-            if len(text) > 64:#test时，截断到16个字
+            if len(text) > 64:#test时，截断到64个字（a photo of a 占用13个字）
                 text = text[:64]
         # image = cv2.imread(row.filepath)
         # image = image[:, :, ::-1]
-        image = preprocess(Image.open(row.filepath))
+        image = preprocess(Image.open(row.filepath))#使用clip的预处理方法
         T = text
-        return {'P': image, 'T': T}
+        return {'P': image, 'T': T}#返回图片和文本 这么定义是为了方便后面接收
 
         # res0 = self.transform(image=image)
         # image0 = res0['image'].astype(np.float32)
@@ -103,17 +105,18 @@ df_train['filepath'] = df_train['image'].apply(lambda x: os.path.join('./', 'tra
 
 dataset_train = LandmarkDataset(df_train, 'train', 'train')
 train_loader = DataLoader(dataset_train, batch_size=BATCH_SIZE, num_workers=16, shuffle=False,pin_memory=True)
-
+#shuffle=False是为了保证batch的顺序，不然会导致batch内的顺序不一致 与csv中的顺序不一致！
 dataset_test = LandmarkDataset(df_train, 'train', 'train')#这里的mode是test，所以会截断到63个字
 test_loader = DataLoader(dataset_test, batch_size=BATCH_SIZE, num_workers=16, shuffle=False,pin_memory=True)
 
+#训练模型时将model精度变为float32 这是一个BUG解决办法
 def convert_models_to_fp32(model):
     for p in model.parameters():
         p.data = p.data.float()
         p.grad.data = p.grad.data.float()
 
 
-#测试CLIP能不能找到最能描述图片的文字：正确率80%左右
+#测试CLIP能不能找到最能描述图片的文字(就是图对应的文，也就是自己)：正确率80%左右
 def test_model(model, test_loader):
     model.eval()
     count_miss = 0
@@ -122,15 +125,16 @@ def test_model(model, test_loader):
         data = batch
         data_images = data["P"].to(device)
         data_texts = data["T"]
-        texts = [f"a photo of a {title}" for title in data_texts]
-        texts_tokenized = clip.tokenize(texts).to(device)
+        texts = [f"a photo of a {title}" for title in data_texts]#prompt,详细参考CLIP官方文档
+        texts_tokenized = clip.tokenize(texts).to(device)#输入CLIP前需要文本token化
         with torch.no_grad():
-            image_features = model.encode_image(data_images).float()
-            text_features = model.encode_text(texts_tokenized).float()
-            text_features /= text_features.norm(dim=-1, keepdim=True)
-            image_features /= image_features.norm(dim=-1, keepdim=True)
+            image_features = model.encode_image(data_images).float()#图片特征向量
+            text_features = model.encode_text(texts_tokenized).float()#文本特征向量
+            text_features /= text_features.norm(dim=-1, keepdim=True)#归一化
+            image_features /= image_features.norm(dim=-1, keepdim=True)#归一化
             text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)#矩阵乘法相当于计算图文的相似度 softmax将相似度转化为概率
-            top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)
+            top_probs, top_labels = text_probs.cpu().topk(5, dim=-1)#取top5的预测结果
+        # 输出top5的预测结果的对应文本
         for i in range(len(data_texts)):
             # print(f"Image Text: {data_texts[i]}")
             # print("Predicted Texts:")
@@ -153,11 +157,13 @@ if device == "cpu":
 else:
     clip.model.convert_weights(model)  # Actually this line is unnecessary since clip by default already on float16
 
+#loss参考CLIP官方文档
 loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
                        weight_decay=0.001)  # Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
+#训练模型
 # for epoch in range(EPOCH):
 #     loss=[]
 #     for batch in tqdm(train_loader):
@@ -180,7 +186,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 #         if device == "cpu":
 #             optimizer.step()
 #         else:
-#             convert_models_to_fp32(model)
+#             convert_models_to_fp32(model)#解决BUG
 #             optimizer.step()
 #             clip.model.convert_weights(model)
 #         # print(f"[{epoch}]-[{i}]: {total_loss.item()}")
@@ -200,7 +206,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 
 # img_embeddings=[]
 # text_embeddings=[]
-# combine_embeddings=[]
+# combine_embeddings=[]#拼接图片和文本的嵌入向量，作为一个新的向量  512+512=1024维度
 # #由CLIP模型得到的图片和文本的嵌入向量
 # def embs_from_model(model, test_loader):
 #     model.eval()
@@ -220,8 +226,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 #             image_features /= image_features.norm(dim=-1, keepdim=True)
 #             img_embeddings.append(image_features.cpu().numpy())
 #             text_embeddings.append(text_features.cpu().numpy())
-#             combined_features = torch.cat((image_features, text_features), dim=1)
-#             combine_embeddings.append(combined_features.cpu().numpy())  # 拼接两个向量，作为一个新的向量
+#             combined_features = torch.cat((image_features, text_features), dim=1)# 拼接两个向量，作为一个新的向量
+#             combine_embeddings.append(combined_features.cpu().numpy())
 #             # print(image_features.shape,text_features.shape,combined_features.shape)#torch.Size([128, 512]) torch.Size([128, 512]) torch.Size([128, 1024])
 #
 # embs_from_model(model, test_loader)
@@ -231,6 +237,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 # combine_embeddings=np.concatenate(combine_embeddings,axis=0)
 # print(img_embeddings.shape,text_embeddings.shape,combine_embeddings.shape)
 #
+# #保存图片和文本的嵌入向量
 # import pickle
 # with open('image_embeddings_clip.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(img_embeddings, f)
@@ -239,6 +246,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 # with open('combine_embeddings_clip.pkl', 'wb') as f:    #Pickling
 #     pickle.dump(combine_embeddings, f)
 
+# #加载图片和文本的嵌入向量
 # with open('image_embeddings_clip.pkl', 'rb') as f:    # Unpickling
 #     image_embeddings = pickle.load(f)
 # with open('text_embeddings_clip.pkl', 'rb') as f:    # Unpickling
@@ -289,7 +297,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 # model.fit(image_embeddings)
 #
 #
-#
+#KNN 算法计算最近邻
 # import cupy as cp
 # import numpy as np, pandas as pd, gc
 #
@@ -461,11 +469,23 @@ optimizer = optim.Adam(model.parameters(), lr=1e-8, betas=(0.9, 0.98), eps=1e-6,
 
 
 
+#Step 3 Combine the model outputs¶   https://www.kaggle.com/code/slawekbiel/resnet18-0-772-public-lb/notebook
+# I combine the neighbours from the previous step with formula D = DResnet + DBERT - DResnet * DBERT
+# This I found works much better than alternatives of taking mean or max.
+#
+# Step 4 Blending
+# I perform a single step of Neighborhood Blending（https://www.kaggle.com/c/shopee-product-matching/discussion/238136） This represented a jump in score from .749 to .770
+
+
+
+#do_chunk函数用于将输入的张量 embs 切分成大小为 step 的小块。通过生成器（yield）的方式逐步返回每个小块的张量。
+#yiled的好处是可以节省内存，避免一次性将整个张量加载到内存中。
 def do_chunk(embs):
     step = 1000
     for chunk_start in range(0, embs.shape[0], step):
         chunk_end = min(chunk_start+step, len(embs))
         yield embs[chunk_start:chunk_end]
+#get_nearest函数用于计算输入张量 embs 与给定块 emb_chunks 之间的最近邻。它返回最近邻距离和对应的索引
 def get_nearest(embs, emb_chunks, K=None, sorted=True):
     if K is None:
         K = min(51, len(embs))
@@ -478,20 +498,23 @@ def get_nearest(embs, emb_chunks, K=None, sorted=True):
         indices.append(top_inds.T)
     return torch.cat(distances), torch.cat(indices)
 
+#combined_distances函数接受一个张量列表 embs_list，计算它们之间的组合距离。它通过调用get_nearest函数获得最近邻的索引，然后计算组合距离和索引。
 def combined_distances(embs_list):
     K = min(len(embs_list[0]), 51)
-    combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]
-    combined_inds = torch.cat(combined_inds, dim=1)
+    combined_inds =[get_nearest(embs, do_chunk(embs))[1] for embs in embs_list]#计算每个embs最近邻，并返回最近邻索引
+    combined_inds = torch.cat(combined_inds, dim=1)#拼接索引（因为上一步是逐个计算的，所以需要拼接）
     res_inds,res_dists = [],[]
     for x in range(len(combined_inds)):
-        inds = combined_inds[x].unique()
-        Ds = [embs[None,x] @ embs[inds].T for embs in embs_list]
-        D = Ds[0] + Ds[1] - Ds[0] * Ds[1]
-        top_dists, top_inds = D.topk(K)
+        inds = combined_inds[x].unique()#获取每个embs的最近邻的索引
+        Ds = [embs[None,x] @ embs[inds].T for embs in embs_list]#计算每个embs的最近邻的距离
+        D = Ds[0] + Ds[1] - Ds[0] * Ds[1]#D = DResnet + DBERT - DResnet * DBERT
+        top_dists, top_inds = D.topk(K)#获取距离最高的K个索引和距离
         res_inds.append(inds[top_inds])
         res_dists.append(top_dists)
-    return torch.cat(res_inds), torch.cat(res_dists)
+    return torch.cat(res_inds), torch.cat(res_dists)#返回每个embs的K个最近邻的距离和索引
 
+#blend_embs函数接受一个张量列表 embs_list，计算它们之间的组合距离。然后，它通过调用get_nearest函数获得最近邻的索引，然后计算组合距离和索引。
+#如果距离超过阈值，则将相应的索引添加到列表中。如果距离小于阈值，则将相应的索引乘以距离，并将结果添加到列表中。最后，它返回一个新的张量列表，其中每个张量都包含相应的组合嵌入。
 def blend_embs(embs_list, threshold=0.97, m2_threshold=0.6):
     combined_inds, combined_dists = combined_distances(embs_list)
 
@@ -527,7 +550,7 @@ def test2_model():
         image_embeddings = torch.from_numpy(image_embeddings).to(device)
         # # image_embeddings=image_embeddings.half()#调整精度
         # # image_embeddings/=image_embeddings.norm(dim=-1, keepdim=True)
-        # image_probs = (100.0 * image_embeddings @ image_embeddings.T)
+        # image_probs = (100.0 * image_embeddings @ image_embeddings.T)#矩阵乘法实际上就是计算余弦相似度
         # # image_probs/=image_probs.norm(dim=-1, keepdim=True)
         # image_prob = image_probs.detach().cpu()
         # del image_probs
@@ -583,14 +606,23 @@ def test2_model():
         # for i in range(10):
         #     print(top_probs[i])
 
+        #采用上述算法，计算出每个样本的相似度，并保存到文件中。便于后续使用。
         new_embs = blend_embs([image_embeddings, text_embeddings], threshold=0.97, m2_threshold=0.6)
         combined_inds, combined_dists = combined_distances(new_embs)
+        with open('combined_inds.pkl','wb') as f:  # pickling
+            pickle.dump(combined_inds, f)
+        with open('combined_dists.pkl','wb') as f:  # pickling
+            pickle.dump(combined_dists, f)
+        with open('combined_inds.pkl', 'rb') as f:  # Unpickling
+            combined_inds = pickle.load(f)
+        with open('combined_dists.pkl', 'rb') as f:  # Unpickling
+            combined_dists = pickle.load(f)
         print(combined_dists[:10])
         blend_list=[]
         for i in range(combined_inds.shape[0]):
             tep=[]
             for j in range(combined_inds.shape[1]):
-                if combined_dists[i][j]>0.99:#阈值 可以进一步调整
+                if combined_dists[i][j]>0.99:#置信阈值 只有相似度超过该值的才会被加入到最终的结果中， 可以进一步调整
                     tep.append(combined_inds[i][j].cpu().item())
             blend_list.append(tep)
         with open('blend_labels.pkl', 'wb') as f:  # Pickling
